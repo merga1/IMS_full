@@ -1,0 +1,333 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Identity Module
+enum BranchType {
+  HQ
+  BRANCH
+}
+
+model Branch {
+  branch_id   Int        @id @default(autoincrement())
+  branch_name String
+  type        BranchType? @default(BRANCH)
+  location    String?
+  users       User[]
+  locations   Location[]
+
+  @@map("branches")
+}
+
+model Role {
+  role_id     Int          @id @default(autoincrement())
+  role_name   String       @unique @db.VarChar(50)
+  role_rank   Int
+  permissions Permission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  permission_id Int    @id @default(autoincrement())
+  code          String @unique @db.VarChar(100)
+  module        String @db.VarChar(50)
+  description   String? @db.Text
+  roles         Role[]
+
+  @@map("permissions")
+}
+
+enum UserType {
+  EMPLOYEE
+  THIRD_PARTY
+}
+
+model User {
+  user_id       String     @id @default(uuid()) @db.Uuid
+  fayda_id      String     @unique @db.VarChar(50)
+  full_name     String     @db.VarChar(255)
+  email         String     @unique @db.VarChar(255)
+  password      String
+  role_id       Int?
+  supervisor_id String?    @db.Uuid
+  user_type     UserType?
+  branch_id     Int?
+
+  role          Role?      @relation(fields: [role_id], references: [role_id])
+  branch        Branch?    @relation(fields: [branch_id], references: [branch_id])
+  supervisor    User?      @relation("Supervisor", fields: [supervisor_id], references: [user_id])
+  subordinates  User[]     @relation("Supervisor")
+
+  // Inverse relations
+  assetsHeld            Asset[]          @relation("Holder")
+  requisitionsMade      Requisition[]    @relation("Requester")
+  incidentReports       IncidentReport[] @relation("Reporter")
+  auditLogs             AuditLog[]
+  documents             Document[]
+  consumableLogs        ConsumableLog[]
+  locationsAsCustodian  Location[]       @relation("LocationCustodian")
+  gatePassesIssued      GatePass[]       @relation("GatePassIssuer")
+  gatePassesReceived    GatePass[]       @relation("GatePassReceiver")
+
+  // Third Party Meta relations
+  thirdPartyMeta        ThirdPartyMeta[] @relation("UserMeta")
+  sponsoredThirdParties ThirdPartyMeta[] @relation("Sponsor")
+
+  is_suspended_from_clearance Boolean @default(false)
+
+  @@map("users")
+}
+
+model AuditLog {
+  log_id     String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(100)
+  entityId   String?  @db.VarChar(255)
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  changes    String?  @db.Text
+  metadata   String?  @db.Text
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.Text
+  timestamp  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [user_id])
+
+  @@map("audit_logs")
+}
+
+model Document {
+  id        String    @id @default(uuid()) @db.Uuid
+  title     String    @db.VarChar(255)
+  content   String?   @db.Text
+  type      String?   @db.VarChar(50)
+  status    String?   @db.VarChar(20)
+  version   Int       @default(1)
+  createdBy String    @db.Uuid
+  updatedBy String?   @db.Uuid
+  deletedAt DateTime?
+  deletedBy String?   @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  createdByUser User @relation(fields: [createdBy], references: [user_id])
+
+  @@map("documents")
+}
+
+model ThirdPartyMeta {
+  meta_id         Int      @id @default(autoincrement())
+  user_id         String?  @db.Uuid
+  sponsor_id      String?  @db.Uuid
+  contract_expiry DateTime @db.Date
+
+  user    User? @relation("UserMeta", fields: [user_id], references: [user_id])
+  sponsor User? @relation("Sponsor", fields: [sponsor_id], references: [user_id])
+
+  @@map("third_party_meta")
+}
+
+// Inventory Module
+
+enum CategoryType {
+  SERIALIZED
+  SKU_VARIANT
+  STATIONARY
+  CONSUMABLE
+  DIGITAL
+}
+
+model Category {
+  cat_id   Int          @id @default(autoincrement())
+  name     String       @unique @db.VarChar(100)
+  type     CategoryType
+  variants SkuVariant[]
+
+  @@map("categories")
+}
+
+model SkuVariant {
+  sku_id          String       @id @db.VarChar(50)
+  item_name       String       @db.VarChar(255)
+  cat_id          Int
+  current_stock   Int          @default(0)
+  max_capacity    Int?         @default(0) // Used for 10% Rule Calculation
+  threshold_qty   Int
+  lifespan_months Int?
+
+  category     Category       @relation(fields: [cat_id], references: [cat_id])
+  assets       Asset[]
+  requisitions Requisition[]
+  consumableLogs ConsumableLog[]
+
+  @@map("sku_variants")
+}
+
+model Location {
+  loc_id     Int    @id @default(autoincrement())
+  branch_id  Int
+  room_name  String @db.VarChar(100)
+  counter_no String @db.VarChar(50)
+
+  custodian_id String? @db.Uuid
+
+  custodian User?   @relation("LocationCustodian", fields: [custodian_id], references: [user_id])
+  branch    Branch  @relation(fields: [branch_id], references: [branch_id])
+  assets    Asset[]
+
+  @@map("locations")
+}
+
+enum AssetStatus {
+  IN_STORE
+  REQUESTED
+  ISSUED
+  DEPLOYED
+  UNDER_MAINTENANCE
+  LOST
+  SCRAPPED
+  RETURN_REQUIRED
+}
+
+model Asset {
+  asset_id          String      @id @default(uuid()) @db.Uuid
+  sku_id            String?     @db.VarChar(50)
+  serial_no         String?     @unique @db.VarChar(100) // For SERIALIZED
+  batch_id          String?     @db.VarChar(100)        // For SKU_VARIANT
+  license_key       String?     @db.VarChar(255)        // For DIGITAL
+  version           String?     @db.VarChar(50)         // For DIGITAL
+  holder_id         String?     @db.Uuid
+  location_id       Int?
+  status            AssetStatus @default(IN_STORE)
+  issued_at         DateTime?
+  health_card_notes String?
+
+  sku      SkuVariant?      @relation(fields: [sku_id], references: [sku_id])
+  holder   User?            @relation("Holder", fields: [holder_id], references: [user_id])
+  location Location?        @relation(fields: [location_id], references: [loc_id])
+  
+  incidentReports IncidentReport[]
+  gatePasses      GatePass[]
+
+  @@map("assets")
+}
+
+model GatePass {
+  pass_id     String   @id @default(uuid()) @db.Uuid
+  asset_id    String   @db.Uuid
+  from_loc_id Int
+  to_loc_id   Int
+  issued_by   String   @db.Uuid
+  receiver_id String?  @db.Uuid // Receiving Storekeeper
+  issued_at   DateTime @default(now())
+  received_at DateTime?
+  status      String   @default("PENDING") // PENDING, IN_TRANSIT, RECEIVED, EXPIRED
+  
+  sender_sig   String? @db.Text // Base64 Signature
+  receiver_sig String? @db.Text // Base64 Signature
+
+  asset   Asset @relation(fields: [asset_id], references: [asset_id])
+  issuer  User  @relation("GatePassIssuer", fields: [issued_by], references: [user_id])
+  receiver User? @relation("GatePassReceiver", fields: [receiver_id], references: [user_id])
+
+  @@map("gate_passes")
+}
+
+model ConsumableLog {
+  log_id          String   @id @default(uuid()) @db.Uuid
+  sku_id          String   @db.VarChar(50)
+  user_id         String   @db.Uuid
+  quantity_issued Int
+  issued_at       DateTime @default(now())
+
+  sku  SkuVariant @relation(fields: [sku_id], references: [sku_id])
+  user User       @relation(fields: [user_id], references: [user_id])
+
+  @@map("consumable_logs")
+}
+
+// Requisition Module
+
+model Requisition {
+  req_id       String   @id @default(uuid()) @db.Uuid
+  requester_id String   @db.Uuid
+  sku_id       String   @db.VarChar(50)
+  quantity     Int      @default(1)
+  status       String?  @default("PENDING_APPROVAL") @db.VarChar(50)
+  otp_hash     String?
+  created_at   DateTime @default(now())
+
+  requester     User           @relation("Requester", fields: [requester_id], references: [user_id])
+  sku           SkuVariant     @relation(fields: [sku_id], references: [sku_id])
+  approvalSteps ApprovalStep[]
+  signature     Signature?
+  procurement   Procurement?
+
+  @@map("requisitions")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ApprovalStep {
+  step_id     Int            @id @default(autoincrement())
+  req_id      String         @db.Uuid
+  approver_id String         @db.Uuid
+  step_order  Int
+  status      ApprovalStatus @default(PENDING)
+  actioned_at DateTime?
+
+  requisition Requisition @relation(fields: [req_id], references: [req_id])
+
+  @@map("approval_steps")
+}
+
+model Procurement {
+  proc_id            String @id @default(uuid()) @db.Uuid
+  req_id             String @unique @db.Uuid
+  gd_approval_status String @db.VarChar(50)
+
+  requisition Requisition @relation(fields: [req_id], references: [req_id])
+
+  @@map("procurement")
+}
+
+model Signature {
+  sig_id         Int      @id @default(autoincrement())
+  req_id         String   @unique @db.Uuid
+  signature_blob String?
+  signed_at      DateTime @default(now())
+
+  requisition Requisition @relation(fields: [req_id], references: [req_id])
+
+  @@map("signatures")
+}
+
+// Maintenance Module
+
+model IncidentReport {
+  incident_id   Int     @id @default(autoincrement())
+  asset_id      String? @db.Uuid
+  sys_id        String? @db.VarChar(100) // For Digital Path: software bugs, license renewals, etc.
+  reported_by   String? @db.Uuid
+  incident_type String  @db.VarChar(20) // DAMAGED, LOST
+  is_frozen     Boolean @default(false)
+  resolution    String? @db.VarChar(50) // REPAIRED, SCRAPPED, REPLACED
+
+  asset    Asset? @relation(fields: [asset_id], references: [asset_id])
+  reporter User?  @relation("Reporter", fields: [reported_by], references: [user_id])
+
+  @@map("incident_reports")
+}

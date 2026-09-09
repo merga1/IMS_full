@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GOVERNMENT-GRADE THEME */
+:root {
+  --radius: 0.25rem;
+  /* Sharp, reliable corners */
+
+  /* Foundation - Subtle Blue Tint */
+  --background: 216 100% 98%;
+  --foreground: 215 25% 15%;
+  /* Deep Slate */
+
+  /* Surface */
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 15%;
+
+  /* Primary - Authoritative Royal Blue */
+  --primary: 215 100% 30%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary - Neutral Support */
+  --secondary: 210 10% 92%;
+  --secondary-foreground: 215 25% 15%;
+
+  /* Muted - Information hierarchy */
+  --muted: 210 10% 95%;
+  --muted-foreground: 215 15% 45%;
+
+  /* Accent - Subtle interactive states */
+  --accent: 210 10% 92%;
+  --accent-foreground: 215 100% 30%;
+
+  /* Semantic Colors - High Contrast & Standardized */
+  --destructive: 0 84% 60%;
+  /* Alert Red */
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 76% 36%;
+  /* Emerald Green */
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  /* Amber/Gold */
+  --warning-foreground: 0 0% 100%;
+
+  /* Borders & Inputs */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 215 100% 30%;
+
+  /* Sidebar - Dark Navy for Navigation */
+  --sidebar: 215 100% 30%;
+  /* Light Mode: Royal Blue */
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 215 100% 30%;
+  --sidebar-accent: 215 80% 40%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 215 80% 40%;
+  --sidebar-ring: 43 89% 53%;
+
+  /* Brand Colors */
+  --gold: 43 89% 53%;
+  /* #F4B61A */
+
+  /* Chart Colors */
+  --chart-1: 215 100% 30%;
+  --chart-2: 142 76% 36%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 262 83% 58%;
+}
+
+.dark {
+  /* Dark Mode Foundation */
+  --background: 222.2 84% 4.9%;
+  /* Very dark slate */
+  --foreground: 210 40% 98%;
+
+  /* Slightly lighter than bg for better depth without harsh shadows */
+  --card: 222.2 84% 9%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222.2 84% 9%;
+  --popover-foreground: 210 40% 98%;
+
+  /* KEEP BRAND IDENTITY */
+  --primary: 215 100% 30%;
+  /* Stay Royal Blue even in Dark Mode */
+  --primary-foreground: 0 0% 100%;
+  /* White text on blue */
+
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 75%;
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 15%;
+  --input: 217.2 32.6% 20%;
+  --ring: 215 100% 50%;
+
+  /* Sidebar deep blue for dark mode */
+  --sidebar: 222 47% 6%;
+  /* Dark Mode: Deep custom Navy */
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 215 100% 30%;
+  --sidebar-accent: 215 80% 40%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 215 80% 40%;
+  --sidebar-ring: 43 89% 53%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .animate-moving-background {
+    animation: moving-background 20s linear infinite;
+  }
+}
+
+@keyframes moving-background {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 100px 100px;
+  }
+}

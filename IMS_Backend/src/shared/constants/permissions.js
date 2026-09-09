@@ -1,0 +1,134 @@
+/**
+ * Permission modules
+ */
+const MODULES = {
+  INVENTORY: 'INVENTORY',
+  REQUISITIONS: 'REQUISITIONS',
+  TASKS: 'TASKS',
+  USERS: 'USERS',
+  REPORTS: 'REPORTS',
+  SETTINGS: 'SETTINGS'
+};
+
+/**
+ * Permission actions
+ */
+const ACTIONS = {
+  CREATE: 'CREATE',
+  READ: 'READ',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  FULFILL: 'FULFILL',
+  SCRAP: 'SCRAP'
+};
+
+/**
+ * Generate permission code
+ */
+const permission = (module, action) => `${module}.${action}`;
+
+/**
+ * All permissions by module
+ */
+const PERMISSIONS = {
+  // Inventory permissions
+  INVENTORY_READ: permission(MODULES.INVENTORY, ACTIONS.READ),
+  INVENTORY_WRITE: permission(MODULES.INVENTORY, ACTIONS.UPDATE),
+  INVENTORY_SCRAP: permission(MODULES.INVENTORY, ACTIONS.SCRAP),
+
+  // Requisition permissions
+  REQUISITIONS_CREATE: permission(MODULES.REQUISITIONS, ACTIONS.CREATE),
+  REQUISITIONS_READ: permission(MODULES.REQUISITIONS, ACTIONS.READ),
+  REQUISITIONS_APPROVE: permission(MODULES.REQUISITIONS, ACTIONS.APPROVE),
+  REQUISITIONS_REJECT: permission(MODULES.REQUISITIONS, ACTIONS.REJECT),
+  REQUISITIONS_FULFILL: permission(MODULES.REQUISITIONS, ACTIONS.FULFILL),
+
+  // User permissions
+  USERS_CREATE: permission(MODULES.USERS, ACTIONS.CREATE),
+  USERS_READ: permission(MODULES.USERS, ACTIONS.READ),
+  USERS_UPDATE: permission(MODULES.USERS, ACTIONS.UPDATE),
+  USERS_DELETE: permission(MODULES.USERS, ACTIONS.DELETE),
+
+  // Settings permissions
+  SETTINGS_READ: permission(MODULES.SETTINGS, ACTIONS.READ),
+  SETTINGS_UPDATE: permission(MODULES.SETTINGS, ACTIONS.UPDATE)
+};
+
+/**
+ * Role permission mappings (Addis MESOB Structure)
+ */
+const ROLE_PERMISSIONS = {
+  'General Director': Object.values(PERMISSIONS),
+
+  'Deputy General Director': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REQUISITIONS_READ,
+    PERMISSIONS.REQUISITIONS_APPROVE,
+    PERMISSIONS.REQUISITIONS_REJECT,
+    PERMISSIONS.REPORTS_READ
+  ],
+
+  'Director': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REQUISITIONS_READ,
+    PERMISSIONS.REQUISITIONS_APPROVE,
+    PERMISSIONS.REQUISITIONS_REJECT,
+  ],
+
+  'Team Leader': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REQUISITIONS_CREATE,
+    PERMISSIONS.REQUISITIONS_READ,
+    PERMISSIONS.REQUISITIONS_APPROVE,
+    PERMISSIONS.REQUISITIONS_REJECT,
+  ],
+
+  'Storekeeper': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.INVENTORY_WRITE,
+    PERMISSIONS.REQUISITIONS_READ,
+    PERMISSIONS.REQUISITIONS_FULFILL,
+  ],
+
+  'Maintenance Team': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.INVENTORY_SCRAP,
+    PERMISSIONS.REQUISITIONS_READ,
+  ],
+
+  'Employee': [
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REQUISITIONS_CREATE,
+    PERMISSIONS.REQUISITIONS_READ,
+  ],
+
+  'Third-Party': [
+    PERMISSIONS.INVENTORY_READ,
+  ]
+};
+
+/**
+ * Role rank definitions (Addis MESOB 5-Level System)
+ * Level 1 is highest priority/authority
+ */
+const ROLE_RANKS = {
+  'General Director': 1,
+  'Deputy General Director': 2,
+  'Director': 3,
+  'Team Leader': 4,
+  'Storekeeper': 5,
+  'Maintenance Team': 5,
+  'Employee': 5,
+  'Third-Party': 5
+};
+
+export default {
+  MODULES,
+  ACTIONS,
+  PERMISSIONS,
+  ROLE_PERMISSIONS,
+  ROLE_RANKS,
+  permission
+};

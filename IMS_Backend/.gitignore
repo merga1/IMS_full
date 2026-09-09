@@ -1,0 +1,13 @@
+# dependencies
+node_modules/
+
+# environment variables
+
+
+# logs
+logs/
+*.log
+
+# OS / editor junk
+.DS_Store
+.vscode/
