@@ -1,6 +1,6 @@
-@"
 # Dependencies
 node_modules/
+*/node_modules/
 
 # Environment / secrets
 .env
@@ -13,9 +13,11 @@ logs/
 
 # Build output
 dist/
+*/dist/
 build/
 .next/
 out/
+.netlify/
 
 # IDE
 .vscode/
@@ -24,4 +26,3 @@ out/
 # OS
 .DS_Store
 Thumbs.db
-"@ | Set-Content .gitignore
