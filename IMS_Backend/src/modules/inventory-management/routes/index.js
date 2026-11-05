@@ -1,14 +1,18 @@
 import { Router } from 'express';
 
+import authentication from '../../../shared/middleware/authentication.js';
 import inventoryController from '../controllers/inventoryController.js';
 import requisitionController from '../controllers/requisitionController.js';
 import dispatchController from '../controllers/dispatchController.js';
 import maintenanceController from '../controllers/maintananceController.js';
 import procurementController from '../controllers/procementController.js';
 
+const { authenticate } = authentication;
 const router = Router();
 
-// Inventory Routes
+// Protect all inventory routes with authentication
+router.use(authenticate);
+
 // Inventory & Branch Management Routes
 router.get('/inventory/summary', inventoryController.getSummary);
 router.get('/inventory/branch/:id', inventoryController.getByBranch);

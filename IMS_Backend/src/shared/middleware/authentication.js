@@ -38,7 +38,15 @@ const authenticate = async (req, res, next) => {
     // 4. Attach User & Permissions from Redis Data
     // We construct a minimal user object required for the app to function
     req.user = {
-      id: session.userId,
+      id: session.userId || session.user_id,
+      userId: session.userId || session.user_id,
+      user_id: session.userId || session.user_id,
+      role_name: session.role,
+      role_rank: session.role_rank,
+      branch_id: session.branch_id,
+      user_type: session.user_type,
+      full_name: session.full_name,
+      email: session.email,
       role: { name: session.role }, // Adapted structure
       // Add other cached fields if needed
     };

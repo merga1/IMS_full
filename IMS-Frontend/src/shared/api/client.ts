@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Base API Client
  * Centralized HTTP client for all API communications
  */
@@ -14,9 +14,31 @@ export interface ApiResponse<T = unknown> {
 
 class ApiClient {
   private baseURL: string;
+  private token: string | null = null;
 
   constructor(baseURL: string = BASE_URL) {
-    this.baseURL = baseURL;
+    this.baseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+    if (typeof window !== 'undefined') {
+      this.token = localStorage.getItem('ims_access_token');
+    }
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('ims_access_token', token);
+      } else {
+        localStorage.removeItem('ims_access_token');
+      }
+    }
+  }
+
+  getToken(): string | null {
+    if (!this.token && typeof window !== 'undefined') {
+      this.token = localStorage.getItem('ims_access_token');
+    }
+    return this.token;
   }
 
   private async request<T>(
@@ -30,7 +52,15 @@ class ApiClient {
       ...(options?.headers as Record<string, string>),
     };
 
-    const response = await fetch(${this.baseURL}, {
+    const token = this.getToken();
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    const url = `${this.baseURL}${cleanPath}`;
+
+    const response = await fetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -42,7 +72,7 @@ class ApiClient {
     try {
       json = await response.json();
     } catch {
-      throw new Error(${response.status}: );
+      throw new Error(`${response.status}: ${response.statusText}`);
     }
 
     if (!response.ok) {

@@ -36,8 +36,13 @@ class AuthController {
 
       const sessionPayload = {
         userId: user.user_id,
+        user_id: user.user_id,
         role: user.role.role_name,
         role_rank: user.role.role_rank,
+        branch_id: user.branch_id,
+        user_type: user.user_type,
+        full_name: user.full_name,
+        email: user.email,
         permissions: permissions,
         active: true, // Required by authentication middleware
       };
@@ -72,6 +77,10 @@ class AuthController {
       return successResponse(res, {
         user: userSafe,
         role_rank: user.role.role_rank,
+        branch_id: user.branch_id,
+        user_type: user.user_type,
+        full_name: user.full_name,
+        email: user.email,
         token: accessToken // Returning token in body too for convenience
       }, 'Login successful');
     } catch (error) {
@@ -81,7 +90,7 @@ class AuthController {
 
   async refreshToken(req, res, next) {
     try {
-      const incomingRefreshToken = req.cookies.refreshToken;
+      const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
       if (!incomingRefreshToken) throw new UnauthorizedError('Refresh token missing');
 
       // 1. Verify JWT
@@ -138,7 +147,7 @@ class AuthController {
 
   async logout(req, res, next) {
     try {
-      const token = req.cookies.accessToken;
+      const token = req.cookies?.accessToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
       if (token) {
         const decoded = jwt.decode(token);
         if (decoded?.sessionId) {

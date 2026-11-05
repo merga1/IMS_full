@@ -55,7 +55,9 @@ const securityConfig = {
 
   // CORS configuration
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+      : (origin, callback) => callback(null, true),
     credentials: true,
     optionsSuccessStatus: 200
   },

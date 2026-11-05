@@ -1,7 +1,9 @@
-﻿/**
+/**
  * Centralized API Service Layer
  * All HTTP calls to the IMS backend route through this module.
  */
+
+import apiClient from './client';
 
 export * from './client';
 export * from './auth';
@@ -10,7 +12,7 @@ export * from './inventory';
 export * from './modules';
 
 // Re-export for convenience
-export { default as apiClient } from './client';
+export { apiClient };
 export { default as authApi } from './auth';
 export { default as usersApi } from './users';
 export { default as inventoryApi } from './inventory';
@@ -27,3 +29,5 @@ export {
 export * as auth from './auth';
 export * as users from './users';
 export * as inventory from './inventory';
+
+export default apiClient;

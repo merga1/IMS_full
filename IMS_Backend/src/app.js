@@ -32,6 +32,18 @@ class App {
     // Body parsing
     this.app.use(json({ limit: '10mb' }));
     this.app.use(urlencoded({ extended: true, limit: '10mb' }));
+    this.app.use((req, res, next) => {
+      req.cookies = req.cookies || {};
+      if (req.headers.cookie) {
+        req.headers.cookie.split(';').forEach(cookie => {
+          const parts = cookie.split('=');
+          const name = parts[0]?.trim();
+          const value = parts.slice(1).join('=').trim();
+          if (name) req.cookies[name] = decodeURIComponent(value);
+        });
+      }
+      next();
+    });
 
     // Compression
     this.app.use(compression());

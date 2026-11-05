@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, Role } from "@/shared/types";
-import { authApi, BackendUser } from "@/shared/services/api";
+import { authApi, apiClient, BackendUser } from "@/shared/api";
 
 // ─── Mock User List (ONLY for demo panel display in LoginPage) ────────────────
 // These are NOT used for real authentication.
@@ -93,6 +93,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (faydaId: string, password: string) => {
     try {
       const res = await authApi.login({ fayda_id: faydaId.trim(), password });
+      if (res.data?.token) {
+        apiClient.setToken(res.data.token);
+      }
       const mappedUser = mapBackendUser(res.data.user);
       set({ user: mappedUser, isAuthenticated: true });
     } catch (err: any) {
@@ -124,6 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try { await authApi.logout(); } catch { /* ignore backend errors */ }
+    apiClient.setToken(null);
     set({ user: null, isAuthenticated: false });
   },
 
