@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { Asset, SKUItem, AssetStatus, StockMovement } from "@/shared/types";
+import { inventoryApi } from "@/shared/api";
 
 interface InventoryState {
     assets: Asset[]; // Individual serialized items (Laptops, etc.)
     skus: SKUItem[]; // Bulk items (Uniforms, Consumables)
     movements: StockMovement[]; // Audit trail of stock changes
+    isLoading: boolean;
 
     // Actions
+    fetchInventory: () => Promise<void>;
+    registerSkuBackend: (sku: { sku_id: string; item_name: string; cat_id: number; current_stock?: number; max_capacity?: number; threshold_qty: number; lifespan_months?: number }) => Promise<void>;
     addAsset: (asset: Asset) => void;
     addAssets: (assets: Asset[]) => void; // Bulk add
     addSku: (sku: SKUItem) => void; // Add new SKU definition
@@ -119,6 +123,53 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     assets: MOCK_ASSETS,
     skus: MOCK_SKUS,
     movements: MOCK_MOVEMENTS,
+    isLoading: false,
+
+    fetchInventory: async () => {
+        set({ isLoading: true });
+        try {
+            const res = await inventoryApi.getSummary();
+            const data = res.data as any[];
+            if (Array.isArray(data) && data.length > 0) {
+                const mappedSkus: SKUItem[] = data.map((item: any) => ({
+                    id: item.sku_id,
+                    name: item.item_name,
+                    category: (item.category?.type === 'CONSUMABLE' ? 'CONSUMABLE' : item.category?.type === 'STATIONARY' ? 'STATIONARY' : 'SKU') as any,
+                    productCategory: item.category?.name || 'General',
+                    currentStock: item.current_stock ?? 0,
+                    thresholdQty: item.threshold_qty ?? 10,
+                    unit: 'pcs',
+                    description: item.category?.name,
+                }));
+                // Keep mock skus that aren't in DB so demo stays rich
+                const unmappedMocks = MOCK_SKUS.filter(m => !mappedSkus.some(s => s.id === m.id));
+                set({ skus: [...mappedSkus, ...unmappedMocks] });
+            }
+        } catch (err) {
+            console.warn('[Inventory] Backend inventory fetch failed; using fallback mock data:', err);
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    registerSkuBackend: async (payload) => {
+        try {
+            await inventoryApi.register(payload);
+            await get().fetchInventory();
+        } catch (err) {
+            console.warn('[Inventory] Failed to register SKU with backend:', err);
+            // Fallback to local SKU creation
+            get().addSku({
+                id: payload.sku_id,
+                name: payload.item_name,
+                category: 'SKU',
+                productCategory: 'General',
+                currentStock: payload.current_stock || 0,
+                thresholdQty: payload.threshold_qty,
+                unit: 'pcs'
+            });
+        }
+    },
 
     addAsset: (asset) => set((state) => ({ assets: [...state.assets, asset] })),
 

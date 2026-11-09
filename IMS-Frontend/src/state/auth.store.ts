@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, Role } from "@/shared/types";
-import { authApi, apiClient, BackendUser } from "@/shared/api";
+import { authApi, usersApi, apiClient, BackendUser } from "@/shared/api";
 
 // ─── Mock User List (ONLY for demo panel display in LoginPage) ────────────────
 // These are NOT used for real authentication.
@@ -79,6 +79,8 @@ interface AuthState {
   /** Email-based login bridge: resolves email → fayda_id then calls login() */
   loginWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  checkSession: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
   mockSwitchRole: (role: Role) => void;
   registerUser: (user: User) => void;
 }
@@ -129,6 +131,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try { await authApi.logout(); } catch { /* ignore backend errors */ }
     apiClient.setToken(null);
     set({ user: null, isAuthenticated: false });
+  },
+
+  checkSession: async () => {
+    const token = apiClient.getToken();
+    if (!token) return;
+    try {
+      const res = await usersApi.me();
+      if (res?.data) {
+        set({ user: mapBackendUser(res.data), isAuthenticated: true });
+      }
+    } catch {
+      console.warn('[Auth] Session validation failed; clearing token');
+      apiClient.setToken(null);
+    }
+  },
+
+  fetchUsers: async () => {
+    try {
+      const res = await usersApi.getAll({ limit: '100' });
+      const userList = (res.data as any)?.users || (Array.isArray(res.data) ? res.data : []);
+      if (userList.length > 0) {
+        const liveUsers = userList.map(mapBackendUser);
+        const merged = [
+          ...liveUsers,
+          ...MOCK_USERS.filter(mu => !liveUsers.some((lu: User) => lu.faydaId.toLowerCase() === mu.faydaId.toLowerCase()))
+        ];
+        set({ users: merged });
+      }
+    } catch (err) {
+      console.warn('[Auth] Live user fetch failed, fallback to mock users:', err);
+    }
   },
 
   mockSwitchRole: (role) => {

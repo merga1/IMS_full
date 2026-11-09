@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -186,6 +187,12 @@ function Router() {
 }
 
 function App() {
+  const { checkSession } = useAuthStore();
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

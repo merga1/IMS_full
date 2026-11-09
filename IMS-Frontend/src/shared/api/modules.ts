@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Additional API Endpoints
  */
 import { apiClient, ApiResponse } from './client';
@@ -12,8 +12,11 @@ export const requisitionsApi = {
     apiClient.get<unknown[]>('/requests/approved-list'),
   pendingApprovals: (): Promise<ApiResponse<unknown[]>> => 
     apiClient.get<unknown[]>('/approvals/pending'),
-  action: (id: string, data: { action: 'APPROVE' | 'REJECT'; comments?: string }): Promise<ApiResponse<unknown>> =>
-    apiClient.post<unknown>('/approvals/' + id + '/action', data),
+  action: (id: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string; comments?: string }): Promise<ApiResponse<unknown>> =>
+    apiClient.post<unknown>('/approvals/' + id + '/action', {
+      action: data.action,
+      reason: data.reason || data.comments || (data.action === 'APPROVE' ? 'Approved' : 'Rejected'),
+    }),
 };
 
 export const dispatchApi = {

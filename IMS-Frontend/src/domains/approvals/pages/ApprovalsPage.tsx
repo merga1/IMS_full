@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useRequestStore } from "@/domains/requisitions/store";
 import { useAuthStore } from "@/state/auth.store";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -9,25 +10,29 @@ import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function ApprovalsPage() {
   const { user } = useAuthStore();
-  const { getPendingForUser, approveRequest, rejectRequest } = useRequestStore();
+  const { getPendingForUser, approveRequestBackend, rejectRequestBackend, fetchRequisitions } = useRequestStore();
   const { toast } = useToast();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    fetchRequisitions();
+  }, [fetchRequisitions]);
 
   // If user is null, ProtectedRoute handles it, but for type safety:
   if (!user) return null;
 
   const pendingRequests = getPendingForUser(user);
 
-  const handleApprove = (reqId: string) => {
-    approveRequest(reqId, user.id, user.role);
+  const handleApprove = async (reqId: string) => {
+    await approveRequestBackend(reqId, "Approved via Quick Action");
     toast({
       title: t('approvals.toast_approved').replace('{0}', reqId),
-      description: "Successfully processed.", // Optional, could add more details
+      description: "Successfully processed.",
     });
   };
 
-  const handleReject = (reqId: string) => {
-    rejectRequest(reqId, user.id, "Rejected via Quick Action");
+  const handleReject = async (reqId: string) => {
+    await rejectRequestBackend(reqId, "Rejected via Quick Action");
     toast({
       title: t('approvals.toast_rejected').replace('{0}', reqId),
       variant: "destructive"

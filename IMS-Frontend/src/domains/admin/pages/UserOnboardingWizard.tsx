@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuthStore } from "@/state/auth.store";
 import { useAdminStore } from "@/domains/admin/store";
+import { usersApi } from "@/shared/api";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -57,14 +58,40 @@ export default function UserOnboardingWizard() {
         }
 
         setIsLoading(true);
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Generate pseudo Fayda ID for internal consistency
-        const pseudoFaydaId = `MANUAL-${Date.now().toString().slice(-6)}`;
-
-        // Generate pseudo Avatar
+        const pseudoFaydaId = `FIN-${Date.now().toString().slice(-4)}`;
         const pseudoAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=random`;
+
+        const roleMapping: Record<string, number> = {
+            'SYSTEM_ADMIN': 1,
+            'GD': 3,
+            'DGD_SERVICE': 3,
+            'DGD_DIGITALIZATION': 3,
+            'DIRECTOR': 5,
+            'TEAM_LEADER': 5,
+            'STOREKEEPER': 7,
+            'MAINTENANCE': 9,
+            'EMPLOYEE': 9,
+            'THIRD_PARTY': 9
+        };
+        const branchMapping: Record<string, number> = {
+            'HQ': 1,
+            'ARADA': 2,
+        };
+
+        try {
+            await usersApi.create({
+                fayda_id: pseudoFaydaId,
+                full_name: formData.fullName,
+                email: formData.email,
+                password: 'Password@123',
+                roleId: roleMapping[formData.role] || 9,
+                branch_id: branchMapping[formData.branch] || 1,
+                user_type: formData.userType || 'EMPLOYEE',
+            });
+        } catch (e) {
+            console.warn('[UserOnboarding] Backend user creation fallback to local:', e);
+        }
 
         registerUser({
             id: `u-${Date.now()}`,
@@ -81,7 +108,7 @@ export default function UserOnboardingWizard() {
         });
 
         toast.success("User Account Created Successfully", {
-            description: `Assigned ID: ${pseudoFaydaId}`
+            description: `Assigned ID: ${pseudoFaydaId} | Default Password: Password@123`
         });
 
         setIsLoading(false);

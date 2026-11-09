@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/state/auth.store";
 import { useAdminStore } from "@/domains/admin/store";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -78,8 +78,12 @@ function BranchUserList({ users }: { users: UserType[] }) {
 }
 
 export default function SystemHierarchyPage() {
-    const { users } = useAuthStore();
+    const { users, fetchUsers } = useAuthStore();
     const { knownBranches, branchStructure } = useAdminStore();
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
 
     return (
         <div className="max-w-4xl mx-auto py-10 space-y-8">

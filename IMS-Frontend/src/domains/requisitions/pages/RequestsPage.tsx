@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRequestStore } from "@/domains/requisitions/store";
 import { useAuthStore } from "@/state/auth.store";
 import { useInventoryStore } from "@/domains/inventory/store";
@@ -17,9 +17,13 @@ import { useLanguage } from "@/app/providers/LanguageProvider";
 export default function RequestsPage() {
   const { user } = useAuthStore();
   const { skus } = useInventoryStore();
-  const { createRequest } = useRequestStore();
+  const { createRequestBackend, fetchRequisitions } = useRequestStore();
   const { toast } = useToast();
   const { t } = useLanguage();
+
+  useEffect(() => {
+    fetchRequisitions();
+  }, [fetchRequisitions]);
 
   const [step, setStep] = useState(1);
   const [isThirdParty, setIsThirdParty] = useState(false);
@@ -54,25 +58,13 @@ export default function RequestsPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const selectedItem = skus.find(s => s.id === formData.itemSkuId);
-
-    createRequest({
-      requesterId: user?.id || 'unknown',
-      requesterName: isThirdParty ? `${formData.thirdPartyName} (via ${user?.fullName})` : user?.fullName || 'Unknown',
-      type: isThirdParty ? 'THIRD_PARTY' : 'STANDARD',
-      items: [{
-        skuId: formData.itemSkuId,
-        name: selectedItem?.name || 'Unknown Item',
-        quantity: formData.quantity
-      }],
-      justification: formData.reason,
+    const res = await createRequestBackend({
+      sku_id: formData.itemSkuId,
+      quantity: Number(formData.quantity) || 1,
+      reason: formData.reason
     });
 
-    // In a real app, OTP is sent via SMS. Here we display it mockly.
-    setGeneratedOTP(Math.floor(100000 + Math.random() * 900000).toString());
+    setGeneratedOTP(res.otp || Math.floor(100000 + Math.random() * 900000).toString());
     setIsSubmitting(false);
     setStep(5); // Success step (now step 5)
     toast({

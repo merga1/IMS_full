@@ -2,11 +2,16 @@ import { create } from 'zustand';
 import { Requisition, ApprovalStep, User, Role, Department, Team } from "@/shared/types";
 import { useAuthStore } from "@/state/auth.store";
 import { getDepartmentSector } from "@/shared/utils/sectorMapping";
+import { requisitionsApi } from "@/shared/api";
 
 interface RequestState {
     requisitions: Requisition[];
 
     // Actions
+    fetchRequisitions: () => Promise<void>;
+    createRequestBackend: (data: { sku_id: string; quantity: number; reason?: string }) => Promise<{ success: boolean; otp?: string; id?: string }>;
+    approveRequestBackend: (reqId: string, reason?: string) => Promise<boolean>;
+    rejectRequestBackend: (reqId: string, reason: string) => Promise<boolean>;
     createRequest: (req: Omit<Requisition, 'id' | 'status' | 'otpHash' | 'createdAt' | 'approvalSteps'>) => void;
     approveRequest: (reqId: string, approverId: string, role: Role) => void;
     rejectRequest: (reqId: string, approverId: string, comment: string) => void;
@@ -181,6 +186,130 @@ const MOCK_REQUESTS: Requisition[] = [
 
 export const useRequestStore = create<RequestState>((set, get) => ({
     requisitions: MOCK_REQUESTS,
+
+    fetchRequisitions: async () => {
+        try {
+            const [myRes, pendingRes] = await Promise.allSettled([
+                requisitionsApi.myRequests(),
+                requisitionsApi.pendingApprovals(),
+            ]);
+            const fetched: Requisition[] = [];
+            if (myRes.status === 'fulfilled' && Array.isArray(myRes.value?.data)) {
+                myRes.value.data.forEach((r: any) => {
+                    fetched.push({
+                        id: r.req_id,
+                        requesterId: r.requester_id,
+                        requesterName: r.requester?.full_name || 'Requester',
+                        type: 'STANDARD',
+                        items: [{ skuId: r.sku_id, name: r.sku?.item_name || r.sku_id, quantity: r.quantity }],
+                        justification: 'Official requisition',
+                        status: (r.status === 'PENDING_APPROVAL' ? 'PENDING_TL' : r.status) as any,
+                        otpHash: r.otp_hash || '',
+                        createdAt: r.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+                        approvalSteps: (r.approvalSteps || []).map((s: any) => ({
+                            rank: s.step_order,
+                            role: 'TEAM_LEADER' as Role,
+                            status: s.status,
+                            approverId: s.approver_id,
+                        })),
+                    });
+                });
+            }
+            if (pendingRes.status === 'fulfilled' && Array.isArray(pendingRes.value?.data)) {
+                pendingRes.value.data.forEach((r: any) => {
+                    if (!fetched.some(x => x.id === r.req_id)) {
+                        fetched.push({
+                            id: r.req_id,
+                            requesterId: r.requester_id,
+                            requesterName: r.requester?.full_name || 'Requester',
+                            type: 'STANDARD',
+                            items: [{ skuId: r.sku_id, name: r.sku?.item_name || r.sku_id, quantity: r.quantity }],
+                            justification: 'Official requisition',
+                            status: (r.status === 'PENDING_APPROVAL' ? 'PENDING_TL' : r.status) as any,
+                            otpHash: r.otp_hash || '',
+                            createdAt: r.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+                            approvalSteps: (r.approvalSteps || []).map((s: any) => ({
+                                rank: s.step_order,
+                                role: 'TEAM_LEADER' as Role,
+                                status: s.status,
+                                approverId: s.approver_id,
+                            })),
+                        });
+                    }
+                });
+            }
+            if (fetched.length > 0) {
+                const merged = [
+                    ...fetched,
+                    ...MOCK_REQUESTS.filter(m => !fetched.some(f => f.id === m.id))
+                ];
+                set({ requisitions: merged });
+            }
+        } catch (err) {
+            console.warn('[Requisitions] Live fetch failed, using fallback mock requests:', err);
+        }
+    },
+
+    createRequestBackend: async ({ sku_id, quantity, reason }) => {
+        try {
+            const res = await requisitionsApi.create({ sku_id, quantity });
+            const createdData = res.data as any;
+            const otp = createdData?.otp;
+            const reqId = createdData?.req_id;
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser) {
+                get().createRequest({
+                    requesterId: currentUser.id,
+                    requesterName: currentUser.fullName,
+                    type: 'STANDARD',
+                    items: [{ skuId: sku_id, name: sku_id, quantity }],
+                    justification: reason || 'Live Requisition',
+                });
+            }
+            return { success: true, otp, id: reqId };
+        } catch (err) {
+            console.warn('[Requisitions] Backend requisition failed, falling back to local simulation:', err);
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser) {
+                get().createRequest({
+                    requesterId: currentUser.id,
+                    requesterName: currentUser.fullName,
+                    type: 'STANDARD',
+                    items: [{ skuId: sku_id, name: sku_id, quantity }],
+                    justification: reason || 'Demo Requisition',
+                });
+            }
+            return { success: true, otp: '123456', id: `REQ-${Date.now().toString().slice(-4)}` };
+        }
+    },
+
+    approveRequestBackend: async (reqId, reason = 'Approved') => {
+        try {
+            await requisitionsApi.action(reqId, { action: 'APPROVE', reason });
+            await get().fetchRequisitions();
+            return true;
+        } catch {
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser) {
+                get().approveRequest(reqId, currentUser.id, currentUser.role);
+            }
+            return true;
+        }
+    },
+
+    rejectRequestBackend: async (reqId, reason) => {
+        try {
+            await requisitionsApi.action(reqId, { action: 'REJECT', reason });
+            await get().fetchRequisitions();
+            return true;
+        } catch {
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser) {
+                get().rejectRequest(reqId, currentUser.id, reason);
+            }
+            return true;
+        }
+    },
 
     createRequest: (reqData) => {
         const currentUser = useAuthStore.getState().user;

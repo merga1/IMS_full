@@ -10,13 +10,17 @@ import { Search, Package, AlertTriangle, ArrowUpDown, ShoppingCart } from "lucid
 import { useInventoryStore } from "@/domains/inventory/store";
 import { useRequestStore } from "@/domains/requisitions/store";
 import { useAuthStore } from "@/state/auth.store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/shared/hooks/use-toast";
 import { useLanguage } from "@/app/providers/LanguageProvider";
 
 export default function InventoryPage() {
   const { user } = useAuthStore();
-  const { skus, checkThreshold } = useInventoryStore();
+  const { skus, checkThreshold, fetchInventory } = useInventoryStore();
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
   const { createRequest } = useRequestStore();
   const { t } = useLanguage();
 
