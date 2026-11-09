@@ -1,7 +1,6 @@
 import inventoryRepository from '../repositories/inventoryRepository.js';
-import assetRepository from '../repositories/assetRepository.js';
 import auditService from '../../../shared/services/audit/auditService.js';
-import { BadRequestError, NotFoundError } from '../../../shared/utils/errors.js';
+import { BadRequestError } from '../../../shared/utils/errors.js';
 
 class InventoryService {
   async registerSku(data, user) {
@@ -67,12 +66,6 @@ class InventoryService {
     });
 
     return gatePass;
-  }
-
-  async getInventory(asset_id) {
-    const asset = await assetRepository.findById(asset_id);
-    if (!asset) throw new NotFoundError('Asset not found');
-    return asset;
   }
 }
 

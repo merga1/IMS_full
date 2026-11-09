@@ -60,23 +60,6 @@ class RequisitionRepository {
         });
     }
 
-    async updateStep(step_id, status) {
-        return prisma.approvalStep.update({
-            where: { step_id },
-            data: {
-                status,
-                actioned_at: new Date(),
-            },
-        });
-    }
-
-    async updateStatus(req_id, status) {
-        return prisma.requisition.update({
-            where: { req_id },
-            data: { status },
-        });
-    }
-
     // Helper to find potential approvers by rank and branch
     async findApproversByRank(rank, branchId = null) {
         return prisma.user.findMany({
@@ -104,22 +87,6 @@ class RequisitionRepository {
                     include: { sponsor: { select: userSummarySelect } }
                 }
             }
-        });
-    }
-
-    async findSku(sku_id) {
-        return prisma.skuVariant.findUnique({
-            where: { sku_id },
-            include: { category: true }
-        });
-    }
-
-    async createProcurement(req_id) {
-        return prisma.procurement.create({
-            data: {
-                req_id,
-                gd_approval_status: 'PENDING',
-            },
         });
     }
 

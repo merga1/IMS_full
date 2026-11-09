@@ -1,4 +1,4 @@
-// src/modules/inventory-management/routes/inventory.routes.js
+// src/modules/inventory-management/routes/docs.routes.js
 import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 

@@ -1,5 +1,5 @@
 import prisma from '../../../database/index.js';
-import maintananceRepository from '../repositories/maintananceRepository.js';
+import maintenanceRepository from '../repositories/maintenanceRepository.js';
 import assetRepository from '../repositories/assetRepository.js';
 import auditService from '../../../shared/services/audit/auditService.js';
 import { assetSummarySelect, userSummarySelect } from '../../../shared/constants/prismaSelects.js';
@@ -26,7 +26,7 @@ class MaintenanceService {
                 }
             }
 
-            const createdIncident = await maintananceRepository.create({
+            const createdIncident = await maintenanceRepository.create({
                 asset_id,
                 sys_id,
                 reported_by: user.user_id,
@@ -61,7 +61,7 @@ class MaintenanceService {
     }
 
     async getQueue() {
-        return maintananceRepository.findAllOpen();
+        return maintenanceRepository.findAllOpen();
     }
 
     async resolveIncident(incident_id, data, technician) {

@@ -3,7 +3,6 @@
 import { Router } from 'express';
 const router = Router();
 
-// import Constants from '../../../shared/constants/permissions';
 import authentication from '../../../shared/middleware/authentication.js';
 import { requirePermission } from '../../../shared/middleware/authorization.js';
 import { validate } from '../../../shared/middleware/validation.js';
@@ -30,7 +29,6 @@ const {
   getHierarchy,
   getSupervisor,
 } = userController;
-// const { PERMISSIONS } = Constants;
 const { createPermissionSchema, permissionIdSchema, bulkCreatePermissionsSchema, moduleParamSchema, permissionListQuerySchema } = permissionValidators;
 const { createRoleSchema, updateRoleSchema, assignPermissionsSchema, roleIdSchema } =
   roleValidators;

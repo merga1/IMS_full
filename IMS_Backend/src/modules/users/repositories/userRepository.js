@@ -1,5 +1,5 @@
 import prisma from '../../../database/index.js';
-import { assetSummarySelect, userSummarySelect } from '../../../shared/constants/prismaSelects.js';
+import { assetSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class UserRepository {
   async create(userData) {
@@ -239,21 +239,6 @@ class UserRepository {
         byType.map((item) => [item.user_type || 'UNSPECIFIED', item._count._all])
       ),
     };
-  }
-
-  async getUsersWithPermission(permissionCode) {
-    return await prisma.user.findMany({
-      where: {
-        role: {
-          permissions: {
-            some: {
-              code: permissionCode
-            }
-          }
-        }
-      },
-        select: { ...userSummarySelect }
-    });
   }
 }
 

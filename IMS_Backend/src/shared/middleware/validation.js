@@ -32,22 +32,4 @@ const validate = (schema, source = 'body') => {
   };
 };
 
-/**
- * Sanitize request body
- */
-const sanitize = (fields = []) => {
-  return (req, res, next) => {
-    if (req.body) {
-      for (const field of fields) {
-        if (req.body[field]) {
-          req.body[field] = String(req.body[field])
-            .trim()
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-        }
-      }
-    }
-    next();
-  };
-};
-
-export { validate, sanitize };
+export { validate };

@@ -88,12 +88,6 @@ const redis = {
     inMemoryStore.delete(key);
     return 1;
   },
-
-  on(event, handler) {
-    if (redisClient) {
-      redisClient.on(event, handler);
-    }
-  }
 };
 
 export default redis;

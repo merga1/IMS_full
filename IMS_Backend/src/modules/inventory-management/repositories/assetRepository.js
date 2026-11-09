@@ -15,28 +15,6 @@ class AssetRepository {
             data: { status },
         });
     }
-
-    async updateHolder(asset_id, holder_id) {
-        return prisma.asset.update({
-            where: { asset_id },
-            data: {
-                holder_id,
-                status: 'ISSUED',
-                issued_at: new Date(),
-            },
-        });
-    }
-
-    async updateLocation(asset_id, location_id) {
-        return prisma.asset.update({
-            where: { asset_id },
-            data: {
-                location_id,
-                status: 'ISSUED', // Or DEPLOYED if we want to distinguish
-                issued_at: new Date(),
-            },
-        });
-    }
 }
 
 export default new AssetRepository();

@@ -27,11 +27,6 @@ class InventoryController {
     const receipt = await inventoryService.receiveAsset(req.body, req.user);
     successResponse(res, receipt, 'Asset receipt confirmed and stock updated');
   });
-
-  getById = asyncHandler(async (req, res) => {
-    const inventory = await inventoryService.getInventory(req.params.id, req.user);
-    successResponse(res, inventory);
-  });
 }
 
 export default new InventoryController();

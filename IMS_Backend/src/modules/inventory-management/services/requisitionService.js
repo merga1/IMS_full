@@ -44,30 +44,6 @@ class RequisitionService {
         return { ...requisition, otp }; // Return OTP once for user to see
     }
 
-    async triggerAskToBuy(req_id, storekeeper) {
-        const requisition = await requisitionRepository.findById(req_id);
-        if (!requisition) throw new NotFoundError('Requisition not found');
-
-        // Verify stock is actually 0
-        const sku = await requisitionRepository.findSku(requisition.sku_id);
-        if (sku.current_stock > 0) {
-            throw new BadRequestError('Stock is available. Process fulfillment instead.');
-        }
-
-        // Create Procurement record (Ask-to-Buy)
-        const procurement = await requisitionRepository.createProcurement(req_id);
-
-        await auditService.log({
-            userId: storekeeper.user_id,
-            action: 'ASK_TO_BUY_TRIGGERED',
-            entityType: 'Requisition',
-            entityId: req_id,
-            metadata: { proc_id: procurement.proc_id }
-        });
-
-        return procurement;
-    }
-
     async approveRequisition(req_id, user) {
         return prisma.$transaction(async (tx) => {
             const requisition = await tx.requisition.findUnique({
@@ -167,12 +143,6 @@ class RequisitionService {
         });
     }
 
-    /**
-     * Helper to identify the dynamic approval chain:
-     * 1. If THIRD_PARTY, start with sponsor_id.
-     * 2. Recursive Search: Fetch supervisor_id until role_rank == 2 (DGD) is reached.
-     * 3. Conflict Check: If approver is requester, skip to next level.
-     */
     /**
      * Helper to identify the refined approval chain:
      * - Employee: TL (Rank 4) > Director (Rank 3) > DGD (Rank 2).

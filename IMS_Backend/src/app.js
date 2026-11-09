@@ -5,13 +5,10 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import { cors as corsConfig, env } from './config/env.js';
-// NOTE: We use default import here because errorHandler was exported as default
-
 import userRouter from './modules/users/routes/index.js';
 import inventoryRouter from './modules/inventory-management/routes/index.js';
-import inventoryDocsRouter from './modules/inventory-management/routes/inventory.routes.js';
+import docsRouter from './modules/inventory-management/routes/docs.routes.js';
 import errorHandler from './shared/middleware/errorHandler.js';
-// import { requestLogger } from './shared/middleware/requestLogger';
 
 class App {
   constructor() {
@@ -86,7 +83,7 @@ class App {
 
   initializeDocs() {
     // Serve Inventory API Documentation
-    this.app.use('/docs/inventory', inventoryDocsRouter);
+    this.app.use('/docs/inventory', docsRouter);
   }
 
   initializeErrorHandling() {

@@ -1,10 +1,7 @@
 import jwt from 'jsonwebtoken';
 
-// import prisma from '../../database/index.js';
-
 import sessionRepository from '../../modules/users/repositories/sessionRepository.js';
 import { UnauthorizedError } from '../utils/errors.js';
-import { logger } from '../utils/logger.js';
 
 /**
  * Verify JWT token and attach user to request
@@ -69,31 +66,4 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-/**
- * Optional authentication - doesn't fail if no token
- */
-const optionalAuthenticate = async (req, res, next) => {
-  let continued = false;
-  const continueRequest = (error) => {
-    if (continued) return;
-    continued = true;
-    if (error) {
-      logger.debug('Optional authentication did not establish a user', {
-        error: error.message,
-        path: req.originalUrl,
-      });
-    }
-    next();
-  };
-
-  try {
-    await authenticate(req, res, continueRequest);
-  } catch (error) {
-    continueRequest(error);
-  }
-};
-
-export default {
-  authenticate,
-  optionalAuthenticate,
-};
+export default { authenticate };

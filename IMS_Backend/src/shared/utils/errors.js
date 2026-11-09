@@ -47,19 +47,6 @@ class ConflictError extends AppError {
   }
 }
 
-class TooManyRequestsError extends AppError {
-  constructor(message = 'Too many requests') {
-    super(message, 429);
-  }
-}
-
-class InternalServerError extends AppError {
-  constructor(message = 'Internal server error') {
-    super(message, 500);
-  }
-}
-
-// ADDED THIS CLASS
 class DatabaseError extends AppError {
   constructor(message = 'Database error') {
     super(message, 500);
@@ -74,7 +61,5 @@ export {
   ForbiddenError,
   NotFoundError,
   ConflictError,
-  TooManyRequestsError,
-  InternalServerError,
-  DatabaseError // Added to exports
+  DatabaseError
 };

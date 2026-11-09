@@ -1,6 +1,5 @@
 import prisma from '../../../database/index.js';
 import { BadRequestError, NotFoundError } from '../../../shared/utils/errors.js';
-import { assetSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class InventoryRepository {
   async createSku(data) {
@@ -14,34 +13,6 @@ class InventoryRepository {
         threshold_qty: data.threshold_qty,
         lifespan_months: data.lifespan_months,
       },
-    });
-  }
-
-  async findSkuById(sku_id) {
-    return prisma.skuVariant.findUnique({
-      where: { sku_id },
-      include: { category: true }
-    });
-  }
-
-  async updateStock(sku_id, quantityChange) {
-    return prisma.skuVariant.update({
-      where: { sku_id },
-      data: {
-        current_stock: { increment: quantityChange }
-      }
-    });
-  }
-
-  async findLowStockSkus() {
-    // Finds SKUs where current_stock <= threshold_qty (the 10% rule)
-    return prisma.skuVariant.findMany({
-      where: {
-        current_stock: {
-          lte: prisma.skuVariant.fields.threshold_qty
-        }
-      },
-      include: { category: true }
     });
   }
 
@@ -141,32 +112,6 @@ class InventoryRepository {
 
       return gatePass;
     });
-  }
-
-  async findAllAssets(filters, pagination) {
-    const { page = 1, limit = 20 } = pagination;
-    const skip = (page - 1) * limit;
-
-    const where = {
-      ...(filters.sku_id && { sku_id: filters.sku_id }),
-      ...(filters.status && { status: filters.status }),
-      ...(filters.holder_id && { holder_id: filters.holder_id }),
-    };
-
-    const [assets, total] = await Promise.all([
-      prisma.asset.findMany({
-        where,
-        skip,
-        take: limit,
-        select: assetSummarySelect,
-      }),
-      prisma.asset.count({ where }),
-    ]);
-
-    return {
-      data: assets,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
   }
 }
 

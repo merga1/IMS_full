@@ -1,15 +1,47 @@
-# Inventory Management System Backend
+# Inventory Management System — Backend
 
-Node.js and Express REST API for authentication, role permissions, inventory, requisitions, approvals, dispatch, procurement, and maintenance. PostgreSQL is accessed through Prisma; Redis stores login sessions.
-
-The full architecture explanation, main code guide, API route table, library descriptions, local setup steps, and presentation script are in [BACKEND_PRESENTATION_GUIDE.md](./BACKEND_PRESENTATION_GUIDE.md).
+Node.js + Express 5 REST API for authentication, roles and permissions, inventory, requisitions and
+multi-step approvals, OTP dispatch, procurement, and maintenance/incident handling.
+PostgreSQL is accessed through Prisma; Redis stores login sessions.
 
 ## Quick start
 
-1. Run `npm install`.
-2. Copy `.env.example` to `.env` and set the database URL, JWT secrets, and allowed browser origins.
-3. Sync a development database with `npm run db:push` or create/apply a migration with `npm run migrate`.
-4. Run `npm run generate` after schema changes.
-5. Start the server using `npm run dev` or `npm start`.
+```bash
+npm install
+cp .env.example .env        # then fill in DATABASE_URL and the two JWT secrets
+npm run generate            # generate the Prisma client
+npm run db:push             # create the tables (development)
+npm run seed                # permissions, roles, branches, demo users (needs SEED_DEFAULT_PASSWORD)
+npm run dev                 # nodemon  (or: npm start)
+```
 
-The API is mounted under `/api`; health is at `/health` and Swagger UI is at `/docs/inventory/`. See the presentation guide before seeding demo users or deploying because the seed password and database migration history require setup.
+| URL | Purpose |
+| --- | --- |
+| `http://localhost:3000/health` | Liveness check |
+| `http://localhost:3000/api/...` | All API routes |
+| `http://localhost:3000/docs/inventory/` | Swagger UI (OpenAPI JSON at `/docs/inventory/json`) |
+
+## Project layout
+
+```
+src/
+  server.js                      entry point: DB connect, listen, graceful shutdown
+  app.js                         Express app: middleware, /api routers, docs, 404 + error handler
+  config/                        env.js, db.js (Prisma logging), redis.js, swagger.js
+  database/
+    index.js                     single PrismaClient instance
+    prisma/schema.prisma         data model
+    prisma/seeds/                permissionSeeder.js
+  modules/
+    users/                       auth, users, roles, permissions
+      routes/  controllers/  services/  repositories/  validators/  dto/
+    inventory-management/        inventory, requisitions, dispatch, procurement, maintenance
+      routes/  controllers/  services/  repositories/  validators.js
+  shared/
+    middleware/                  authentication, authorization, validation, errorHandler
+    constants/                   permissions.js (codes, role->permission map), prismaSelects.js
+    services/audit/              auditService.js
+    utils/                       asyncHandler, errors, logger, responses, tokens
+```
+
+Request flow: `route -> authenticate -> requirePermission -> validate (Joi) -> controller -> service -> repository -> Prisma -> PostgreSQL`.

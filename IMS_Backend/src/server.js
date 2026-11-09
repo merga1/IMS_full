@@ -1,7 +1,7 @@
 import app from './app.js';
 import { port, env } from './config/env.js';
-import prisma from './database/index.js'; 
-import { logger } from './shared/utils/logger.js'; // Import the logger instance
+import prisma from './database/index.js';
+import { logger } from './shared/utils/logger.js';
 
 
 async function startServer() {

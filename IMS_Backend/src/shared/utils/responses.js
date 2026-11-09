@@ -39,14 +39,3 @@ export const errorResponse = (res, error, context = {}) => {
 
   return res.status(statusCode).json(payload);
 };
-
-export const paginatedResponse = (res, data, pagination, message = 'Success', context = {}) => {
-  return res.status(200).json({
-    success: true,
-    message,
-    data,
-    pagination,
-    timestamp: new Date().toISOString(),
-    ...context,
-  });
-};

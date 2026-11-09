@@ -40,40 +40,6 @@ class AuditService {
       return null;
     }
   }
-
-  async getEntityHistory(entityType, entityId) {
-    return prisma.auditLog.findMany({
-      where: {
-        entityType,
-        entityId,
-      },
-      include: {
-        user: {
-          select: { user_id: true, full_name: true, email: true },
-        },
-      },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
-
-  async getUserActivity(userId, filters = {}) {
-    const { startDate, endDate, action, entityType } = filters;
-
-    return prisma.auditLog.findMany({
-      where: {
-        userId,
-        ...(action && { action }),
-        ...(entityType && { entityType }),
-        ...(startDate && endDate && {
-          timestamp: {
-            gte: startDate,
-            lte: endDate,
-          },
-        }),
-      },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
 }
 
 export default new AuditService();

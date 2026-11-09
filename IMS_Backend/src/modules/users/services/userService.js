@@ -53,15 +53,6 @@ class UserService {
     return omitPassword(user);
   }
 
-  async getUserByEmail(email) {
-    const user = await userRepository.findByEmail(email);
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
-
-    return omitPassword(user);
-  }
-
   async getAllUsers(filters) {
     const result = await userRepository.findAll(filters);
 
