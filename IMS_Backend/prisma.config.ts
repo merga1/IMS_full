@@ -1,7 +1,7 @@
 import { defineConfig, env } from 'prisma/config';
 import dotenv from 'dotenv';
 
-dotenv.config(); 
+dotenv.config({ override: true }); 
 
 export default defineConfig({
   schema: 'src/database/prisma/schema.prisma',
