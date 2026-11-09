@@ -10,7 +10,7 @@ class RoleRepository {
       data: {
         ...data,
         permissions: {
-          connect: permissionIds.map(id => ({ id }))
+          connect: permissionIds.map((permission_id) => ({ permission_id }))
         }
       },
       include: {
@@ -24,7 +24,7 @@ class RoleRepository {
 
   async findById(id) {
     return await prisma.role.findUnique({
-      where: { id },
+      where: { role_id: Number(id) },
       include: {
         permissions: true,
         _count: {
@@ -36,7 +36,7 @@ class RoleRepository {
 
   async findByName(name) {
     return await prisma.role.findUnique({
-      where: { name },
+      where: { role_name: name },
       include: {
         permissions: true
       }
@@ -44,19 +44,14 @@ class RoleRepository {
   }
 
   async findAll(filters = {}) {
-    const { page = 1, limit = 10, search, isSystem } = filters;
+    const { page = 1, limit = 10, search } = filters;
     const skip = (page - 1) * limit;
 
     const where = {};
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
-      ];
+      where.OR = [{ role_name: { contains: search, mode: 'insensitive' } }];
     }
-
-    if (isSystem !== undefined) where.isSystem = isSystem === 'true';
 
     const [roles, total] = await Promise.all([
       prisma.role.findMany({
@@ -69,7 +64,7 @@ class RoleRepository {
             select: { users: true }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { role_rank: 'asc' }
       }),
       prisma.role.count({ where })
     ]);
@@ -87,7 +82,7 @@ class RoleRepository {
 
   async update(id, roleData) {
     return await prisma.role.update({
-      where: { id },
+      where: { role_id: Number(id) },
       data: roleData,
       include: {
         permissions: true,
@@ -100,16 +95,16 @@ class RoleRepository {
 
   async remove(id) {
     return await prisma.role.delete({
-      where: { id }
+      where: { role_id: Number(id) }
     });
   }
 
   async assignPermissions(roleId, permissionIds) {
     return await prisma.role.update({
-      where: { id: roleId },
+      where: { role_id: Number(roleId) },
       data: {
         permissions: {
-          set: permissionIds.map(id => ({ id }))
+          set: permissionIds.map((permission_id) => ({ permission_id }))
         }
       },
       include: {
@@ -120,10 +115,10 @@ class RoleRepository {
 
   async removePermissions(roleId, permissionIds) {
     return await prisma.role.update({
-      where: { id: roleId },
+      where: { role_id: Number(roleId) },
       data: {
         permissions: {
-          disconnect: permissionIds.map(id => ({ id }))
+          disconnect: permissionIds.map((permission_id) => ({ permission_id }))
         }
       },
       include: {

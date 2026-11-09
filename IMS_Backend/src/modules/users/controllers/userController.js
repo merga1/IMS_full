@@ -4,6 +4,7 @@ import { successResponse } from '../../../shared/utils/responses.js';
 import createUserDto from '../dto/createUser.dto.js';
 import updateUserDto from '../dto/updateUser.dto.js';
 import userService from '../services/userService.js';
+import { cookieConfig } from '../../../shared/utils/tokens.js';
 
 class UserController {
   async createUser(req, res, next) {
@@ -30,14 +31,15 @@ class UserController {
 
   async getAllUsers(req, res, next) {
     try {
+      const query = req.validated?.query || req.query;
       const filters = {
-        page: parseInt(req.query.page) || 1,
-        limit: parseInt(req.query.limit) || 10,
-        search: req.query.search,
-        department: req.query.department,
-        clearanceLevel: req.query.clearanceLevel,
-        active: req.query.active,
-        roleId: req.query.roleId
+        page: query.page || 1,
+        limit: query.limit || 10,
+        search: query.search,
+        roleId: query.roleId,
+        branchId: query.branchId,
+        userType: query.userType,
+        suspended: query.suspended,
       };
 
       const result = await userService.getAllUsers(filters);
@@ -77,6 +79,8 @@ class UserController {
       const { currentPassword, newPassword } = req.body;
 
       const result = await userService.changePassword(userId, currentPassword, newPassword);
+      res.clearCookie('accessToken', { path: cookieConfig.path });
+      res.clearCookie('refreshToken', { path: cookieConfig.path });
 
       return successResponse(res, result, 'Password changed successfully');
     } catch (error) {

@@ -30,11 +30,6 @@ class RequisitionController {
         successResponse(res, requests, 'Approved requests for branch retrieved successfully');
     });
 
-    getById = asyncHandler(async (req, res) => {
-        // Potentially add a service method for getting a requisition by ID
-        // For now, mirroring findById from repo in service if needed
-        throw new Error('Not implemented');
-    });
 }
 
 export default new RequisitionController();

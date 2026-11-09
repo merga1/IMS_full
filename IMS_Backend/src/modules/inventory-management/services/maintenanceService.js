@@ -1,38 +1,53 @@
+import prisma from '../../../database/index.js';
 import maintananceRepository from '../repositories/maintananceRepository.js';
 import assetRepository from '../repositories/assetRepository.js';
 import auditService from '../../../shared/services/audit/auditService.js';
+import { assetSummarySelect, userSummarySelect } from '../../../shared/constants/prismaSelects.js';
+import { ForbiddenError, NotFoundError, BadRequestError } from '../../../shared/utils/errors.js';
 
 class MaintenanceService {
     /**
      * Hardware Path: Link to Asset_ID for physical repair history.
      * Digital Path: Link to Sys_ID for software bugs, OS updates, etc.
      */
-    async reportIncident(data, user) {
-        const { asset_id, sys_id, incident_type, description } = data;
+    async reportIncident(data, user, permissions = []) {
+        const { asset_id, sys_id, incident_type } = data;
 
-        const incident = await maintananceRepository.create({
-            asset_id,
-            sys_id,
-            reported_by: user.user_id,
-            incident_type,
-            description,
-            status: 'OPEN'
-        });
-
-        // 3. Loss/Damage: Reporting an incident flags the user's clearance profile immediately
-        if (incident_type === 'LOST' || incident_type === 'DAMAGED') {
-            await prisma.user.update({
-                where: { user_id: user.user_id },
-                data: { is_suspended_from_clearance: true }
-            });
-
-            // If LOST, also update asset status to LOST
-            if (incident_type === 'LOST' && asset_id) {
-                await assetRepository.updateStatus(asset_id, 'LOST');
-            } else if (incident_type === 'DAMAGED' && asset_id) {
-                await assetRepository.updateStatus(asset_id, 'UNDER_MAINTENANCE');
+        const incident = await prisma.$transaction(async (tx) => {
+            if (asset_id) {
+                const asset = await tx.asset.findUnique({
+                    where: { asset_id },
+                    select: { asset_id: true, holder_id: true },
+                });
+                if (!asset) throw new NotFoundError('Asset not found');
+                const canManageInventory = permissions.includes('INVENTORY.UPDATE') || permissions.includes('INVENTORY.SCRAP');
+                if (asset.holder_id !== user.user_id && !canManageInventory) {
+                    throw new ForbiddenError('You can only report incidents for assets assigned to you.');
+                }
             }
-        }
+
+            const createdIncident = await maintananceRepository.create({
+                asset_id,
+                sys_id,
+                reported_by: user.user_id,
+                incident_type,
+            }, tx);
+
+            // Loss or damage reports freeze the reporter until the incident is resolved.
+            if (incident_type === 'LOST' || incident_type === 'DAMAGED') {
+                await tx.user.update({
+                    where: { user_id: user.user_id },
+                    data: { is_suspended_from_clearance: true }
+                });
+
+                if (incident_type === 'LOST' && asset_id) {
+                    await tx.asset.update({ where: { asset_id }, data: { status: 'LOST' } });
+                } else if (incident_type === 'DAMAGED' && asset_id) {
+                    await tx.asset.update({ where: { asset_id }, data: { status: 'UNDER_MAINTENANCE' } });
+                }
+            }
+            return createdIncident;
+        });
 
         await auditService.log({
             userId: user.user_id,
@@ -53,10 +68,23 @@ class MaintenanceService {
         const { resolution, notes } = data; // resolution: REPAIRED, SCRAPPED
 
         return prisma.$transaction(async (tx) => {
-            const incident = await tx.incidentReport.update({
-                where: { incident_id: parseInt(incident_id) },
-                data: { resolution, is_frozen: false }, // Unfreeze the incident
-                include: { asset: true, reporter: true }
+            const numericId = Number(incident_id);
+            const existingIncident = await tx.incidentReport.findUnique({
+                where: { incident_id: numericId },
+                select: { incident_id: true, resolution: true },
+            });
+            if (!existingIncident) throw new NotFoundError('Incident not found');
+            if (existingIncident.resolution) throw new BadRequestError('Incident has already been resolved.');
+
+            const incidentUpdate = await tx.incidentReport.updateMany({
+                where: { incident_id: numericId, resolution: null },
+                data: { resolution, is_frozen: false },
+            });
+            if (incidentUpdate.count !== 1) throw new BadRequestError('Incident has already been resolved.');
+
+            const incident = await tx.incidentReport.findUnique({
+                where: { incident_id: numericId },
+                include: { asset: { select: assetSummarySelect }, reporter: { select: userSummarySelect } },
             });
 
             if (incident.asset_id) {
@@ -66,14 +94,22 @@ class MaintenanceService {
                     data: { status: newStatus, health_card_notes: notes }
                 });
 
-                // Check if user should be unfrozen
-                // Rule: If resolution is reached, we might unfreeze the user, 
-                // but usually clearance is only restored after a formal investigation or replacement.
-                // For now, let's unfreeze them if it was REPAIRED or formally SCRAPPED.
-                await tx.user.update({
-                    where: { user_id: incident.reported_by },
-                    data: { is_suspended_from_clearance: false }
+            }
+
+            if (incident.reported_by) {
+                const otherOpenIncidents = await tx.incidentReport.count({
+                    where: {
+                        reported_by: incident.reported_by,
+                        resolution: null,
+                        incident_id: { not: numericId },
+                    },
                 });
+                if (otherOpenIncidents === 0) {
+                    await tx.user.update({
+                        where: { user_id: incident.reported_by },
+                        data: { is_suspended_from_clearance: false },
+                    });
+                }
             }
 
             await auditService.log({

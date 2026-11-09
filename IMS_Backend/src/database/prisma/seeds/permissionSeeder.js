@@ -18,7 +18,7 @@ async function seedPermissions() {
       update: {},
       create: {
         code: permissionCode,
-        module: module.toLowerCase(),
+        module,
         description: `Permission to ${action.toLowerCase()} ${module.toLowerCase()}`,
       },
     });
@@ -28,20 +28,34 @@ async function seedPermissions() {
   // 2. Sync Roles and Assign Permissions
   // Map both descriptive names and system codes (e.g. SYSTEM_ADMIN, GD, etc.)
   const allPermissions = await prisma.permission.findMany();
-  const allConnect = allPermissions.map((p) => ({ permission_id: p.permission_id }));
-
+  const permissionIdsByCode = new Map(allPermissions.map((p) => [p.code, p.permission_id]));
+  const allCodes = Object.values(PERMISSIONS);
   const roleDefinitions = [
-    { name: 'SYSTEM_ADMIN', rank: 0, permissions: allConnect },
-    { name: 'System Administrator', rank: 0, permissions: allConnect },
-    { name: 'GD', rank: 1, permissions: allConnect },
-    { name: 'General Director', rank: 1, permissions: allConnect },
-    { name: 'DIRECTOR', rank: 3, permissions: allConnect.slice(0, 10) },
-    { name: 'Director', rank: 3, permissions: allConnect.slice(0, 10) },
-    { name: 'STOREKEEPER', rank: 5, permissions: allConnect.slice(0, 8) },
-    { name: 'Storekeeper', rank: 5, permissions: allConnect.slice(0, 8) },
-    { name: 'EMPLOYEE', rank: 5, permissions: allConnect.slice(0, 4) },
-    { name: 'Employee', rank: 5, permissions: allConnect.slice(0, 4) },
-  ];
+    { name: 'SYSTEM_ADMIN', rank: ROLE_RANKS['System Administrator'], codes: allCodes },
+    { name: 'System Administrator', rank: ROLE_RANKS['System Administrator'], codes: allCodes },
+    { name: 'GD', rank: ROLE_RANKS['General Director'], codes: allCodes },
+    { name: 'General Director', rank: ROLE_RANKS['General Director'], codes: ROLE_PERMISSIONS['General Director'] },
+    { name: 'DGD', rank: ROLE_RANKS['Deputy General Director'], codes: ROLE_PERMISSIONS['Deputy General Director'] },
+    { name: 'Deputy General Director', rank: ROLE_RANKS['Deputy General Director'], codes: ROLE_PERMISSIONS['Deputy General Director'] },
+    { name: 'DIRECTOR', rank: ROLE_RANKS.Director, codes: ROLE_PERMISSIONS.Director },
+    { name: 'Director', rank: ROLE_RANKS.Director, codes: ROLE_PERMISSIONS.Director },
+    { name: 'TEAM_LEADER', rank: ROLE_RANKS['Team Leader'], codes: ROLE_PERMISSIONS['Team Leader'] },
+    { name: 'Team Leader', rank: ROLE_RANKS['Team Leader'], codes: ROLE_PERMISSIONS['Team Leader'] },
+    { name: 'STOREKEEPER', rank: ROLE_RANKS.Storekeeper, codes: ROLE_PERMISSIONS.Storekeeper },
+    { name: 'Storekeeper', rank: ROLE_RANKS.Storekeeper, codes: ROLE_PERMISSIONS.Storekeeper },
+    { name: 'MAINTENANCE', rank: ROLE_RANKS['Maintenance Team'], codes: ROLE_PERMISSIONS['Maintenance Team'] },
+    { name: 'Maintenance Team', rank: ROLE_RANKS['Maintenance Team'], codes: ROLE_PERMISSIONS['Maintenance Team'] },
+    { name: 'EMPLOYEE', rank: ROLE_RANKS.Employee, codes: ROLE_PERMISSIONS.Employee },
+    { name: 'Employee', rank: ROLE_RANKS.Employee, codes: ROLE_PERMISSIONS.Employee },
+    { name: 'THIRD_PARTY', rank: ROLE_RANKS['Third-Party'], codes: ROLE_PERMISSIONS['Third-Party'] },
+    { name: 'Third-Party', rank: ROLE_RANKS['Third-Party'], codes: ROLE_PERMISSIONS['Third-Party'] },
+  ].map((role) => ({
+    ...role,
+    permissions: role.codes
+      .map((code) => permissionIdsByCode.get(code))
+      .filter(Boolean)
+      .map((permission_id) => ({ permission_id })),
+  }));
 
   for (const r of roleDefinitions) {
     await prisma.role.upsert({
@@ -78,12 +92,18 @@ async function seedPermissions() {
 
   // 4. Sync Default Users
   const bcrypt = await import('bcrypt');
-  const defaultHashedPassword = await bcrypt.default.hash('Password@123', 12);
+  const seedPassword = process.env.SEED_DEFAULT_PASSWORD;
+  if (!seedPassword || seedPassword.length < 12) {
+    throw new Error('Set SEED_DEFAULT_PASSWORD to a unique value of at least 12 characters before seeding demo users.');
+  }
+  const defaultHashedPassword = await bcrypt.default.hash(seedPassword, 12);
 
   const defaultUsers = [
     { fayda_id: 'FIN-ADMIN', full_name: 'System Administrator', email: 'admin@mesob.gov.et', role_name: 'SYSTEM_ADMIN', branch_id: hqBranch.branch_id },
     { fayda_id: 'FIN-1000', full_name: 'Abebe Bikila', email: 'abebe@mesob.gov.et', role_name: 'GD', branch_id: hqBranch.branch_id },
+    { fayda_id: 'FIN-1001', full_name: 'Deputy General Director', email: 'dgd@mesob.gov.et', role_name: 'DGD', branch_id: hqBranch.branch_id },
     { fayda_id: 'FIN-1002', full_name: 'Derartu Tulu', email: 'derartu@mesob.gov.et', role_name: 'DIRECTOR', branch_id: aradaBranch.branch_id },
+    { fayda_id: 'FIN-1003', full_name: 'Team Leader', email: 'teamleader@mesob.gov.et', role_name: 'TEAM_LEADER', branch_id: aradaBranch.branch_id },
     { fayda_id: 'FIN-1004', full_name: 'Kenenisa Bekele', email: 'kenenisa@mesob.gov.et', role_name: 'STOREKEEPER', branch_id: aradaBranch.branch_id },
     { fayda_id: 'FIN-1006', full_name: 'Almaz Ayana', email: 'almaz@mesob.gov.et', role_name: 'EMPLOYEE', branch_id: aradaBranch.branch_id },
   ];
@@ -114,7 +134,7 @@ async function seedPermissions() {
     });
     console.log(`   > Synced User: ${u.full_name} (${u.fayda_id} / ${u.email})`);
   }
-  console.log('✅ Default users seeded with Password: Password@123');
+  console.log('✅ Demo users seeded with SEED_DEFAULT_PASSWORD.');
 
   console.log('✅ All Seeding completed successfully.');
 }

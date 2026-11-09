@@ -40,11 +40,11 @@ class RoleController {
 
   async getAllRoles(req, res, next) {
     try {
+      const query = req.validated?.query || req.query;
       const filters = {
-        page: parseInt(req.query.page) || 1,
-        limit: parseInt(req.query.limit) || 10,
-        search: req.query.search,
-        isSystem: req.query.isSystem,
+        page: query.page || 1,
+        limit: query.limit || 10,
+        search: query.search,
       };
 
       const result = await getAllRoles(filters);

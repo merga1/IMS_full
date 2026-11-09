@@ -18,7 +18,7 @@ class ThirdPartyService {
                     await thirdPartyRepository.updateAssetStatus(asset.asset_id, 'RETURN_REQUIRED');
 
                     await auditService.log({
-                        userId: 'SYSTEM',
+                        userId: null,
                         action: 'ASSET_RETURN_FLAGGED',
                         entityType: 'Asset',
                         entityId: asset.asset_id,

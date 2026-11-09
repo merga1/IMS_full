@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 import jwt from 'jsonwebtoken';
 
-import { jwtRefreshSecret } from '../../../config/env.js';
+import { jwtRefreshSecret, jwtSecret } from '../../../config/env.js';
 import { UnauthorizedError, BadRequestError } from '../../../shared/utils/errors.js';
 import { successResponse } from '../../../shared/utils/responses.js';
 import {
@@ -30,6 +30,10 @@ class AuthController {
 
       if (!user) {
         throw new UnauthorizedError('Invalid credentials');
+      }
+
+      if (!user.role) {
+        throw new UnauthorizedError('User account has no assigned role');
       }
 
       const permissions = user.role.permissions.map(p => p.code);
@@ -72,7 +76,9 @@ class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
-      const { password: _password, ...userSafe } = user;
+      const userSafe = Object.fromEntries(
+        Object.entries(user).filter(([key]) => key !== 'password')
+      );
 
       return successResponse(res, {
         user: userSafe,
@@ -97,15 +103,25 @@ class AuthController {
       let decoded;
       try {
         decoded = jwt.verify(incomingRefreshToken, jwtRefreshSecret);
-      } catch (e) { throw new UnauthorizedError('Invalid refresh token'); }
+      } catch { throw new UnauthorizedError('Invalid refresh token'); }
+
+      if (!decoded?.sessionId || !decoded?.userId) {
+        throw new UnauthorizedError('Invalid refresh token');
+      }
 
       // 2. Get Session from Redis
       const session = await sessionRepository.findById(decoded.sessionId);
       if (!session) {
         // If JWT is valid but session is gone, user probably logged out or expired
-        res.clearCookie('accessToken');
-        res.clearCookie('refreshToken');
+        res.clearCookie('accessToken', { path: cookieConfig.path });
+        res.clearCookie('refreshToken', { path: cookieConfig.path });
         throw new UnauthorizedError('Session expired');
+      }
+      if (!session.active || session.userId !== decoded.userId) {
+        await sessionRepository.delete(decoded.sessionId);
+        res.clearCookie('accessToken', { path: cookieConfig.path });
+        res.clearCookie('refreshToken', { path: cookieConfig.path });
+        throw new UnauthorizedError('Session is no longer active');
       }
 
       // 3. Reuse Detection
@@ -113,8 +129,8 @@ class AuthController {
       if (session.refreshTokenHash !== incomingHash) {
         // Theft detected! Delete session immediately.
         await sessionRepository.delete(decoded.sessionId);
-        res.clearCookie('accessToken');
-        res.clearCookie('refreshToken');
+        res.clearCookie('accessToken', { path: cookieConfig.path });
+        res.clearCookie('refreshToken', { path: cookieConfig.path });
         throw new UnauthorizedError('Token reuse detected');
       }
 
@@ -147,16 +163,21 @@ class AuthController {
 
   async logout(req, res, next) {
     try {
-      const token = req.cookies?.accessToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
-      if (token) {
-        const decoded = jwt.decode(token);
-        if (decoded?.sessionId) {
-          // Simply delete key from Redis
-          await sessionRepository.delete(decoded.sessionId);
+      const accessToken = req.cookies?.accessToken || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+      const refreshToken = req.cookies?.refreshToken;
+
+      for (const [token, secret] of [[accessToken, jwtSecret], [refreshToken, jwtRefreshSecret]]) {
+        if (!token) continue;
+        try {
+          const decoded = jwt.verify(token, secret);
+          if (decoded?.sessionId) await sessionRepository.delete(decoded.sessionId);
+          break;
+        } catch {
+          // Try the other signed token; never trust an unverified sessionId.
         }
       }
-      res.clearCookie('accessToken');
-      res.clearCookie('refreshToken');
+      res.clearCookie('accessToken', { path: cookieConfig.path });
+      res.clearCookie('refreshToken', { path: cookieConfig.path });
       return successResponse(res, null, 'Logged out');
     } catch (error) {
       next(error);

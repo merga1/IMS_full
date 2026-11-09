@@ -1,4 +1,5 @@
 import prisma from '../../../database/index.js';
+import { userSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class ProcurementRepository {
     async create(data) {
@@ -9,7 +10,7 @@ class ProcurementRepository {
             },
             include: {
                 requisition: {
-                    include: { sku: true, requester: true }
+                    include: { sku: true, requester: { select: userSummarySelect } }
                 }
             }
         });
@@ -20,7 +21,7 @@ class ProcurementRepository {
             where: { proc_id },
             include: {
                 requisition: {
-                    include: { sku: true, requester: true }
+                    include: { sku: true, requester: { select: userSummarySelect } }
                 }
             }
         });
@@ -41,7 +42,7 @@ class ProcurementRepository {
             where: { gd_approval_status: 'PENDING' },
             include: {
                 requisition: {
-                    include: { sku: true, requester: true }
+                    include: { sku: true, requester: { select: userSummarySelect } }
                 }
             }
         });

@@ -2,9 +2,8 @@
 
 class CreateRoleDto {
   constructor(data) {
-    this.name = data.name;
-    this.description = data.description || null;
-    this.isSystem = data.isSystem || false;
+    this.role_name = data.role_name;
+    this.role_rank = data.role_rank;
     this.permissionIds = data.permissionIds || [];
   }
 

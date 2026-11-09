@@ -25,13 +25,29 @@ const createPermissionSchema = Joi.object({
 });
 
 const permissionIdSchema = Joi.object({
-  id: Joi.string().uuid().required().messages({
-    'string.uuid': 'Invalid permission ID format',
+  id: Joi.number().integer().positive().required().messages({
+    'number.base': 'Invalid permission ID format',
     'any.required': 'Permission ID is required'
   })
 });
 
+const bulkCreatePermissionsSchema = Joi.object({
+  permissions: Joi.array().items(createPermissionSchema).min(1).max(100).required(),
+});
+
+const moduleParamSchema = Joi.object({
+  module: Joi.string().valid(...Object.values(MODULES)).required(),
+});
+
+const permissionListQuerySchema = Joi.object({
+  module: Joi.string().valid(...Object.values(MODULES)).optional(),
+  search: Joi.string().trim().max(100).optional(),
+});
+
 export default {
   createPermissionSchema,
-  permissionIdSchema
+  permissionIdSchema,
+  bulkCreatePermissionsSchema,
+  moduleParamSchema,
+  permissionListQuerySchema
 };

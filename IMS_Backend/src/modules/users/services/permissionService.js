@@ -2,8 +2,10 @@
 
 import { AppError } from '../../../shared/utils/errors.js';
 import permissionRepository from '../repositories/permissionRepository.js';
+import sessionRepository from '../repositories/sessionRepository.js';
+import userRepository from '../repositories/userRepository.js';
 
-const { remove, findByCode, create, findById, findAll, findByModule } = permissionRepository;
+const { remove, findByCode, create, findById, findAll, findByModule, findRoleIdsByPermission } = permissionRepository;
 
 class PermissionService {
   async createPermission(permissionData) {
@@ -38,7 +40,10 @@ class PermissionService {
       throw new AppError('Permission not found', 404);
     }
 
+    const roleIds = await findRoleIdsByPermission(id);
+    const userIds = await userRepository.findUserIdsByRoles(roleIds);
     await remove(id);
+    await Promise.all(userIds.map((userId) => sessionRepository.deleteUserSessions(userId)));
     return { message: 'Permission deleted successfully' };
   }
 

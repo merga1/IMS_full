@@ -10,10 +10,13 @@ class ProcurementService {
     async createBuyRequest(req_id, storekeeper) {
         const requisition = await requisitionRepository.findById(req_id);
         if (!requisition) throw new NotFoundError('Requisition not found');
+        if (requisition.status !== 'APPROVED') {
+            throw new BadRequestError('Requisition must be approved before procurement can be requested.');
+        }
 
         // Check if item is really out of stock
-        if (requisition.sku.current_stock > 0) {
-            throw new BadRequestError('Item is still in stock. Fulfillment should proceed normally.');
+        if (requisition.sku.current_stock >= requisition.quantity) {
+            throw new BadRequestError('Enough stock is available. Process fulfillment instead.');
         }
 
         const procurement = await procurementRepository.create({ req_id });
@@ -35,6 +38,9 @@ class ProcurementService {
     async gdApprove(proc_id, gd) {
         const procurement = await procurementRepository.findById(proc_id);
         if (!procurement) throw new NotFoundError('Procurement request not found');
+        if (procurement.gd_approval_status !== 'PENDING') {
+            throw new BadRequestError('Procurement request has already been actioned.');
+        }
 
         const updated = await procurementRepository.update(proc_id, {
             gd_approval_status: 'APPROVED'

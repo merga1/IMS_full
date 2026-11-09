@@ -23,6 +23,10 @@ class App {
   }
 
   initializeMiddlewares() {
+    if (process.env.TRUST_PROXY === 'true') {
+      this.app.set('trust proxy', 1);
+    }
+
     // Security
     this.app.use(helmet({
       contentSecurityPolicy: false, // For Swagger UI
@@ -33,13 +37,19 @@ class App {
     this.app.use(json({ limit: '10mb' }));
     this.app.use(urlencoded({ extended: true, limit: '10mb' }));
     this.app.use((req, res, next) => {
-      req.cookies = req.cookies || {};
+      req.cookies = Object.create(null);
       if (req.headers.cookie) {
         req.headers.cookie.split(';').forEach(cookie => {
-          const parts = cookie.split('=');
-          const name = parts[0]?.trim();
-          const value = parts.slice(1).join('=').trim();
-          if (name) req.cookies[name] = decodeURIComponent(value);
+          const separator = cookie.indexOf('=');
+          if (separator < 1) return;
+          const name = cookie.slice(0, separator).trim();
+          const rawValue = cookie.slice(separator + 1).trim();
+          if (!name || Object.hasOwn(req.cookies, name)) return;
+          try {
+            req.cookies[name] = decodeURIComponent(rawValue);
+          } catch {
+            // Ignore malformed cookie values; authentication will reject them.
+          }
         });
       }
       next();

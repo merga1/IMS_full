@@ -1,6 +1,7 @@
 import inventoryRepository from '../repositories/inventoryRepository.js';
+import assetRepository from '../repositories/assetRepository.js';
 import auditService from '../../../shared/services/audit/auditService.js';
-import { NotFoundError } from '../../../shared/utils/errors.js';
+import { BadRequestError, NotFoundError } from '../../../shared/utils/errors.js';
 
 class InventoryService {
   async registerSku(data, user) {
@@ -27,6 +28,9 @@ class InventoryService {
   }
 
   async getBranchInventory(branch_id) {
+    if (!Number.isInteger(Number(branch_id)) || Number(branch_id) < 1) {
+      throw new BadRequestError('Branch ID must be a positive integer.');
+    }
     return inventoryRepository.findByBranch(branch_id);
   }
 
@@ -41,7 +45,7 @@ class InventoryService {
       action: 'ASSET_TRANSFER_INITIATED',
       entityType: 'Asset',
       entityId: data.asset_id,
-      metadata: { pass_id: gatePass.pass_id, to_branch: data.to_branch_id }
+      metadata: { pass_id: gatePass.pass_id, to_location_id: data.to_loc_id }
     });
 
     return gatePass;
@@ -49,7 +53,8 @@ class InventoryService {
 
   async receiveAsset(data, storekeeper) {
     const gatePass = await inventoryRepository.completeReceipt({
-      ...data,
+      pass_id: data.pass_id,
+      receiver_sig: data.receiver_sig,
       receiver_id: storekeeper.user_id
     });
 
@@ -62,6 +67,12 @@ class InventoryService {
     });
 
     return gatePass;
+  }
+
+  async getInventory(asset_id) {
+    const asset = await assetRepository.findById(asset_id);
+    if (!asset) throw new NotFoundError('Asset not found');
+    return asset;
   }
 }
 

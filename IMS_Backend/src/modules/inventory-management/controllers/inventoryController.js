@@ -15,7 +15,7 @@ class InventoryController {
 
   register = asyncHandler(async (req, res) => {
     const sku = await inventoryService.registerSku(req.body, req.user);
-    successResponse(res, sku, 'SKU/Asset registered successfully', 201);
+    successResponse(res, sku, 'SKU registered successfully', 201);
   });
 
   transfer = asyncHandler(async (req, res) => {

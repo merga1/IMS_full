@@ -50,6 +50,7 @@ const PERMISSIONS = {
   USERS_READ: permission(MODULES.USERS, ACTIONS.READ),
   USERS_UPDATE: permission(MODULES.USERS, ACTIONS.UPDATE),
   USERS_DELETE: permission(MODULES.USERS, ACTIONS.DELETE),
+  REPORTS_READ: permission(MODULES.REPORTS, ACTIONS.READ),
 
   // Settings permissions
   SETTINGS_READ: permission(MODULES.SETTINGS, ACTIONS.READ),
@@ -60,6 +61,7 @@ const PERMISSIONS = {
  * Role permission mappings (Addis MESOB Structure)
  */
 const ROLE_PERMISSIONS = {
+  'System Administrator': Object.values(PERMISSIONS),
   'General Director': Object.values(PERMISSIONS),
 
   'Deputy General Director': [
@@ -106,6 +108,8 @@ const ROLE_PERMISSIONS = {
 
   'Third-Party': [
     PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.REQUISITIONS_CREATE,
+    PERMISSIONS.REQUISITIONS_READ,
   ]
 };
 
@@ -114,6 +118,7 @@ const ROLE_PERMISSIONS = {
  * Level 1 is highest priority/authority
  */
 const ROLE_RANKS = {
+  'System Administrator': 0,
   'General Director': 1,
   'Deputy General Director': 2,
   'Director': 3,

@@ -31,10 +31,11 @@ const {
   getSupervisor,
 } = userController;
 // const { PERMISSIONS } = Constants;
-const { createPermissionSchema, permissionIdSchema } = permissionValidators;
+const { createPermissionSchema, permissionIdSchema, bulkCreatePermissionsSchema, moduleParamSchema, permissionListQuerySchema } = permissionValidators;
 const { createRoleSchema, updateRoleSchema, assignPermissionsSchema, roleIdSchema } =
   roleValidators;
-const { createUserSchema, updateUserSchema, changePasswordSchema, userIdSchema } = userValidators;
+const { createUserSchema, updateUserSchema, changePasswordSchema, userIdSchema, userListQuerySchema } = userValidators;
+const { roleListQuerySchema } = roleValidators;
 
 const {
   createRole,
@@ -65,7 +66,7 @@ router.use(authenticate); // All routes below require authentication
 // User management routes
 router.post('/users', requirePermission('USERS.CREATE'), validate(createUserSchema), createUser);
 
-router.get('/users', requirePermission('USERS.READ'), getAllUsers);
+router.get('/users', requirePermission('USERS.READ'), validate(userListQuerySchema, 'query'), getAllUsers);
 
 router.get('/users/stats', requirePermission('USERS.READ'), getUserStats);
 
@@ -103,7 +104,7 @@ router.post('/users/change-password', validate(changePasswordSchema), changePass
 
 router.post('/roles', requirePermission('USERS.CREATE'), validate(createRoleSchema), createRole);
 
-router.get('/roles', requirePermission('USERS.READ'), getAllRoles);
+router.get('/roles', requirePermission('USERS.READ'), validate(roleListQuerySchema, 'query'), getAllRoles);
 
 router.get(
   '/roles/:id',
@@ -152,11 +153,11 @@ router.post(
   createPermission
 );
 
-router.post('/permissions/bulk', requirePermission('USERS.CREATE'), bulkCreatePermissions);
+router.post('/permissions/bulk', requirePermission('USERS.CREATE'), validate(bulkCreatePermissionsSchema), bulkCreatePermissions);
 
-router.get('/permissions', requirePermission('USERS.READ'), getAllPermissions);
+router.get('/permissions', requirePermission('USERS.READ'), validate(permissionListQuerySchema, 'query'), getAllPermissions);
 
-router.get('/permissions/module/:module', requirePermission('USERS.READ'), getPermissionsByModule);
+router.get('/permissions/module/:module', requirePermission('USERS.READ'), validate(moduleParamSchema, 'params'), getPermissionsByModule);
 
 router.get(
   '/permissions/:id',

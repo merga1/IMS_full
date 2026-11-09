@@ -11,7 +11,7 @@ class PermissionRepository {
 
   async findById(id) {
     return await prisma.permission.findUnique({
-      where: { id }
+      where: { permission_id: Number(id) }
     });
   }
 
@@ -47,14 +47,22 @@ class PermissionRepository {
   async findByIds(ids) {
     return await prisma.permission.findMany({
       where: {
-        id: { in: ids }
+        permission_id: { in: ids.map(Number) }
       }
     });
   }
 
+  async findRoleIdsByPermission(id) {
+    const permission = await prisma.permission.findUnique({
+      where: { permission_id: Number(id) },
+      select: { roles: { select: { role_id: true } } },
+    });
+    return permission?.roles.map((role) => role.role_id) || [];
+  }
+
   async remove(id) {
     return await prisma.permission.delete({
-      where: { id }
+      where: { permission_id: Number(id) }
     });
   }
 

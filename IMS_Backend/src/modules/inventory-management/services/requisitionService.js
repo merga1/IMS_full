@@ -1,8 +1,11 @@
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+
+import prisma from '../../../database/index.js';
+import { userSummarySelect } from '../../../shared/constants/prismaSelects.js';
 import requisitionRepository from '../repositories/requisitionRepository.js';
 import { NotFoundError, ForbiddenError, BadRequestError } from '../../../shared/utils/errors.js';
 import auditService from '../../../shared/services/audit/auditService.js';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 
 class RequisitionService {
     async createRequisition(data, user) {
@@ -16,7 +19,7 @@ class RequisitionService {
         }
 
         // 2. Generate unique 6-digit OTP tied to request
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = crypto.randomInt(100000, 1000000).toString();
         const otp_hash = await bcrypt.hash(otp, 10);
 
         // 3. Create Requisition and Steps
@@ -35,7 +38,7 @@ class RequisitionService {
             entityType: 'Requisition',
             entityId: requisition.req_id,
             changes: { sku_id, quantity },
-            metadata: { otp_display: otp } // In real system, this would be sent via SMS/Email
+            metadata: { delivery: 'returned_once_to_requester' }
         });
 
         return { ...requisition, otp }; // Return OTP once for user to see
@@ -66,67 +69,102 @@ class RequisitionService {
     }
 
     async approveRequisition(req_id, user) {
-        const requisition = await requisitionRepository.findById(req_id);
-        if (!requisition) throw new NotFoundError('Requisition not found');
+        return prisma.$transaction(async (tx) => {
+            const requisition = await tx.requisition.findUnique({
+                where: { req_id },
+                select: { requester_id: true, status: true },
+            });
+            if (!requisition) throw new NotFoundError('Requisition not found');
+            if (requisition.status !== 'PENDING_APPROVAL') {
+                throw new BadRequestError('Requisition is no longer awaiting approval.');
+            }
 
-        const nextStep = await requisitionRepository.findNextPendingStep(req_id);
-        if (!nextStep) {
-            throw new BadRequestError('No pending approval steps for this requisition.');
-        }
+            const nextStep = await tx.approvalStep.findFirst({
+                where: { req_id, status: 'PENDING' },
+                orderBy: { step_order: 'asc' },
+            });
+            if (!nextStep) throw new BadRequestError('No pending approval steps for this requisition.');
+            if (nextStep.approver_id !== user.user_id) {
+                throw new ForbiddenError('You are not the designated approver for the current step.');
+            }
 
-        // Security Verification: Is this the correct approver ID or Rank?
-        if (nextStep.approver_id !== user.user_id) {
-            throw new ForbiddenError('You are not the designated approver for the current step.');
-        }
+            const stepUpdate = await tx.approvalStep.updateMany({
+                where: { step_id: nextStep.step_id, status: 'PENDING' },
+                data: { status: 'APPROVED', actioned_at: new Date() },
+            });
+            if (stepUpdate.count !== 1) throw new BadRequestError('Approval step has already been actioned.');
 
-        // Update Step
-        await requisitionRepository.updateStep(nextStep.step_id, 'APPROVED');
-
-        // Check if it was the last step
-        const remainingStep = await requisitionRepository.findNextPendingStep(req_id);
-        if (!remainingStep) {
-            await requisitionRepository.updateStatus(req_id, 'APPROVED');
+            const remainingStep = await tx.approvalStep.findFirst({
+                where: { req_id, status: 'PENDING' },
+                orderBy: { step_order: 'asc' },
+            });
+            if (!remainingStep) {
+                const requestUpdate = await tx.requisition.updateMany({
+                    where: { req_id, status: 'PENDING_APPROVAL' },
+                    data: { status: 'APPROVED' },
+                });
+                if (requestUpdate.count !== 1) throw new BadRequestError('Requisition status changed while approving.');
+            }
 
             await auditService.log({
                 userId: user.user_id,
-                action: 'REQUISITION_FULLY_APPROVED',
+                action: remainingStep ? 'REQUISITION_STEP_APPROVED' : 'REQUISITION_FULLY_APPROVED',
                 entityType: 'Requisition',
                 entityId: req_id,
-            });
-        } else {
-            await auditService.log({
-                userId: user.user_id,
-                action: 'REQUISITION_STEP_APPROVED',
-                entityType: 'Requisition',
-                entityId: req_id,
-                metadata: { step_order: nextStep.step_order },
-            });
-        }
+                ...(remainingStep && { metadata: { step_order: nextStep.step_order } }),
+            }, tx);
 
-        return requisitionRepository.findById(req_id);
+            return tx.requisition.findUnique({
+                where: { req_id },
+                include: { requester: { select: userSummarySelect }, sku: { include: { category: true } }, approvalSteps: { orderBy: { step_order: 'asc' } }, signature: true },
+            });
+        });
     }
 
     async rejectRequisition(req_id, user, reason) {
-        const requisition = await requisitionRepository.findById(req_id);
-        if (!requisition) throw new NotFoundError('Requisition not found');
+        return prisma.$transaction(async (tx) => {
+            const requisition = await tx.requisition.findUnique({
+                where: { req_id },
+                select: { status: true },
+            });
+            if (!requisition) throw new NotFoundError('Requisition not found');
+            if (requisition.status !== 'PENDING_APPROVAL') {
+                throw new BadRequestError('Requisition is no longer awaiting approval.');
+            }
 
-        const nextStep = await requisitionRepository.findNextPendingStep(req_id);
-        if (!nextStep || nextStep.approver_id !== user.user_id) {
-            throw new ForbiddenError('You are not authorized to reject this step.');
-        }
+            const nextStep = await tx.approvalStep.findFirst({
+                where: { req_id, status: 'PENDING' },
+                orderBy: { step_order: 'asc' },
+            });
+            if (!nextStep || nextStep.approver_id !== user.user_id) {
+                throw new ForbiddenError('You are not authorized to reject this step.');
+            }
 
-        await requisitionRepository.updateStep(nextStep.step_id, 'REJECTED');
-        await requisitionRepository.updateStatus(req_id, 'REJECTED');
+            const stepUpdate = await tx.approvalStep.updateMany({
+                where: { step_id: nextStep.step_id, status: 'PENDING' },
+                data: { status: 'REJECTED', actioned_at: new Date() },
+            });
+            const requestUpdate = await tx.requisition.updateMany({
+                where: { req_id, status: 'PENDING_APPROVAL' },
+                data: { status: 'REJECTED' },
+            });
+            if (stepUpdate.count !== 1 || requestUpdate.count !== 1) {
+                throw new BadRequestError('Requisition has already been actioned.');
+            }
 
-        await auditService.log({
-            userId: user.user_id,
-            action: 'REQUISITION_REJECTED',
-            entityType: 'Requisition',
-            entityId: req_id,
-            metadata: { reason },
+            await auditService.log({
+                userId: user.user_id,
+                action: 'REQUISITION_REJECTED',
+                entityType: 'Requisition',
+                entityId: req_id,
+                metadata: { reason },
+            }, tx);
+
+            return tx.requisition.findUnique({
+                where: { req_id },
+                include: { requester: { select: userSummarySelect }, sku: { include: { category: true } }, approvalSteps: { orderBy: { step_order: 'asc' } }, signature: true },
+            });
         });
-
-        return requisitionRepository.findById(req_id);
     }
 
     /**
@@ -156,7 +194,9 @@ class RequisitionService {
             }
             // Route to DGD
             const dgd = await requisitionRepository.findApproversByRank(2);
-            if (dgd.length > 0) steps.push({ approver_id: dgd[0].user_id, level: 2 });
+            if (dgd.length > 0 && !steps.some((step) => step.approver_id === dgd[0].user_id)) {
+                steps.push({ approver_id: dgd[0].user_id, level: 2 });
+            }
             return steps;
         }
 

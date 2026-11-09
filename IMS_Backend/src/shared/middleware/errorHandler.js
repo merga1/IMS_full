@@ -8,6 +8,18 @@ import {
 import { logger } from '../utils/logger.js';
 import { errorResponse } from '../utils/responses.js';
 
+const redactSensitiveFields = (value) => {
+  if (Array.isArray(value)) return value.map(redactSensitiveFields);
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      /password|token|secret|signature|otp/i.test(key) ? '[REDACTED]' : redactSensitiveFields(item),
+    ])
+  );
+};
+
 const errorHandler = (err, req, res, next) => {
   // 1. Prevent "Headers already sent" errors
   if (res.headersSent) {
@@ -28,7 +40,7 @@ const errorHandler = (err, req, res, next) => {
       stack: err.stack,
       url: req.originalUrl,
       method: req.method,
-      body: { ...req.body, password: '[REDACTED]' }, // sanitize sensitive fields
+      body: redactSensitiveFields(req.body),
       user: req.user?.id,
       userId: req.user?.id,
       ip: req.ip,
@@ -48,11 +60,13 @@ const errorHandler = (err, req, res, next) => {
 
   // Handle Prisma errors
   if (err.code === 'P2002') {
-    error = new ConflictError('Resource already exists', { cause: err });
+    error = new ConflictError('Resource already exists');
   } else if (err.code === 'P2025') {
-    error = new NotFoundError('Resource not found', { cause: err });
+    error = new NotFoundError('Resource not found');
+  } else if (err.code === 'P2003') {
+    error = new ValidationError('A referenced record does not exist or cannot be removed.');
   } else if (err.code && err.code.startsWith('P20')) {
-    error = new DatabaseError('Database operation failed', { cause: err });
+    error = new DatabaseError('Database operation failed');
   }
 
   // Handle JWT errors

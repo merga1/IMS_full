@@ -1,4 +1,4 @@
-import {morgan } from 'morgan';
+import morgan from 'morgan';
 
 import {logger}  from'../utils/logger.js'
 
@@ -32,7 +32,7 @@ const detailedRequestLogger = (req, res, next) => {
     method: req.method,
     url: req.url,
     query: req.query,
-    body: req.method !== 'GET' ? req.body : undefined,
+    body: req.method !== 'GET' ? redactSensitiveFields(req.body) : undefined,
     userId: req.user?.id,
     ip: req.ip
   });
@@ -54,6 +54,16 @@ const detailedRequestLogger = (req, res, next) => {
   };
 
   next();
+};
+
+const redactSensitiveFields = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  return Object.fromEntries(
+    Object.entries(body).map(([key, value]) => [
+      key,
+      /password|token|secret|signature/i.test(key) ? '[REDACTED]' : value,
+    ])
+  );
 };
 
 export{

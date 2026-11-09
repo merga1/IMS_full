@@ -73,17 +73,24 @@ const authenticate = async (req, res, next) => {
  * Optional authentication - doesn't fail if no token
  */
 const optionalAuthenticate = async (req, res, next) => {
+  let continued = false;
+  const continueRequest = (error) => {
+    if (continued) return;
+    continued = true;
+    if (error) {
+      logger.debug('Optional authentication did not establish a user', {
+        error: error.message,
+        path: req.originalUrl,
+      });
+    }
+    next();
+  };
+
   try {
-    await authenticate(req, res, () => {});
-  } catch (err) {
-    // Log the error but continue without user
-    logger.error('Authentication failed in optionalAuthenticate', {
-      error: err.message,
-      stack: err.stack,
-      path: req.originalUrl,
-    });
+    await authenticate(req, res, continueRequest);
+  } catch (error) {
+    continueRequest(error);
   }
-  next();
 };
 
 export default {

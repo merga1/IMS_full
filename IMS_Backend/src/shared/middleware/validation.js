@@ -3,18 +3,12 @@ import { ValidationError } from '../utils/errors.js';
 /**
  * Validate request using Joi schema
  */
-const validate = (schema) => {
+const validate = (schema, source = 'body') => {
   return (req, res, next) => {
-    const toValidate = {
-      ...(schema.body && { body: req.body }),
-      ...(schema.query && { query: req.query }),
-      ...(schema.params && { params: req.params }),
-      ...(schema.headers && { headers: req.headers }),
-    };
-
-    const { error, value } = schema.validate(toValidate, {
+    const { error, value } = schema.validate(req[source], {
       abortEarly: false,
       stripUnknown: true,
+      convert: true,
     });
 
     if (error) {
@@ -27,9 +21,12 @@ const validate = (schema) => {
     }
 
     // Replace request with validated values
-    if (schema.body) req.body = value.body;
-    if (schema.query) req.query = value.query;
-    if (schema.params) req.params = value.params;
+    if (source === 'body' || source === 'params') {
+      req[source] = value;
+      req.validated = { ...req.validated, [source]: value };
+    } else {
+      req.validated = { ...req.validated, [source]: value };
+    }
 
     next();
   };

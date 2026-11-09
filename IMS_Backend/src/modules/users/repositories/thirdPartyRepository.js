@@ -10,8 +10,9 @@ class ThirdPartyRepository {
             },
             include: {
                 user: {
-                    include: {
-                        assetsHeld: true,
+                    select: {
+                        user_id: true,
+                        assetsHeld: { select: { asset_id: true } },
                     },
                 },
             },

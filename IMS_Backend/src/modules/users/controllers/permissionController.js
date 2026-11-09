@@ -38,9 +38,10 @@ class PermissionController {
 
   async getAllPermissions(req, res, next) {
     try {
+      const query = req.validated?.query || req.query;
       const filters = {
-        module: req.query.module,
-        search: req.query.search,
+        module: query.module,
+        search: query.search,
       };
 
       const permissions = await getAllPermissions(filters);

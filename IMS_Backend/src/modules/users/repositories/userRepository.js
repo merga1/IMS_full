@@ -1,4 +1,5 @@
 import prisma from '../../../database/index.js';
+import { assetSummarySelect, userSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class UserRepository {
   async create(userData) {
@@ -17,18 +18,58 @@ class UserRepository {
   async findById(user_id) {
     return await prisma.user.findUnique({
       where: { user_id },
-      include: {
-        role: true,
+      select: {
+        user_id: true,
+        fayda_id: true,
+        full_name: true,
+        email: true,
+        role_id: true,
+        supervisor_id: true,
+        user_type: true,
+        branch_id: true,
+        is_suspended_from_clearance: true,
+        role: { select: { role_id: true, role_name: true, role_rank: true } },
         branch: true,
-        supervisor: true,
+        supervisor: {
+          select: {
+            user_id: true,
+            fayda_id: true,
+            full_name: true,
+            email: true,
+            role_id: true,
+            user_type: true,
+            branch_id: true,
+            supervisor_id: true,
+          },
+        },
         assetsHeld: {
           where: { status: 'ISSUED' },
-          include: { sku: true }
+          select: assetSummarySelect,
         },
         thirdPartyMeta: {
-          include: { sponsor: true }
+          include: {
+            sponsor: {
+              select: {
+                user_id: true,
+                fayda_id: true,
+                full_name: true,
+                email: true,
+                role_id: true,
+                user_type: true,
+                branch_id: true,
+                supervisor_id: true,
+              },
+            },
+          }
         }
       }
+    });
+  }
+
+  async findByIdWithPassword(user_id) {
+    return prisma.user.findUnique({
+      where: { user_id },
+      select: { user_id: true, password: true },
     });
   }
 
@@ -49,13 +90,13 @@ class UserRepository {
     return await prisma.user.findUnique({
       where: { email },
       include: {
-        role: true
+        role: { select: { role_id: true, role_name: true, role_rank: true } }
       }
     });
   }
 
   async findAll(filters) {
-    const { page = 1, limit = 10, search, department, active, roleId } = filters;
+    const { page = 1, limit = 10, search, roleId, branchId, userType, suspended } = filters;
     const skip = (page - 1) * limit;
 
     const where = {
@@ -66,8 +107,12 @@ class UserRepository {
           { fayda_id: { contains: search, mode: 'insensitive' } }
         ]
       }),
-      ...(active !== undefined && { active: active === 'true' }),
-      ...(roleId && { role_id: parseInt(roleId) })
+      ...(roleId && { role_id: Number(roleId) }),
+      ...(branchId && { branch_id: Number(branchId) }),
+      ...(userType && { user_type: userType }),
+      ...(suspended !== undefined && {
+        is_suspended_from_clearance: suspended === true || suspended === 'true',
+      })
     };
 
     const [users, total] = await Promise.all([
@@ -75,7 +120,19 @@ class UserRepository {
         where,
         skip,
         take: limit,
-        include: { role: true, branch: true },
+        select: {
+          user_id: true,
+          fayda_id: true,
+          full_name: true,
+          email: true,
+          role_id: true,
+          supervisor_id: true,
+          user_type: true,
+          branch_id: true,
+          is_suspended_from_clearance: true,
+          role: { select: { role_id: true, role_name: true, role_rank: true } },
+          branch: true,
+        },
         orderBy: { full_name: 'asc' }
       }),
       prisma.user.count({ where })
@@ -96,7 +153,19 @@ class UserRepository {
     return await prisma.user.update({
       where: { user_id },
       data: userData,
-      include: { role: true }
+      select: {
+        user_id: true,
+        fayda_id: true,
+        full_name: true,
+        email: true,
+        role_id: true,
+        supervisor_id: true,
+        user_type: true,
+        branch_id: true,
+        is_suspended_from_clearance: true,
+        role: { select: { role_id: true, role_name: true, role_rank: true } },
+        branch: true,
+      }
     });
   }
 
@@ -110,13 +179,6 @@ class UserRepository {
     return await prisma.user.update({
       where: { user_id },
       data: { password: hashedPassword }
-    });
-  }
-
-  async updateLastLogin(user_id) {
-    return await prisma.user.update({
-      where: { user_id },
-      data: { lastLoginAt: new Date() }
     });
   }
 
@@ -142,8 +204,41 @@ class UserRepository {
 
   async countByRole(roleId) {
     return await prisma.user.count({
-      where: { role_id: parseInt(roleId) }
+      where: { role_id: Number(roleId) }
     });
+  }
+
+  async findUserIdsByRole(roleId) {
+    const users = await prisma.user.findMany({
+      where: { role_id: Number(roleId) },
+      select: { user_id: true },
+    });
+    return users.map((user) => user.user_id);
+  }
+
+  async findUserIdsByRoles(roleIds) {
+    if (!roleIds.length) return [];
+    const users = await prisma.user.findMany({
+      where: { role_id: { in: roleIds.map(Number) } },
+      select: { user_id: true },
+    });
+    return users.map((user) => user.user_id);
+  }
+
+  async getStats() {
+    const [total, suspended, byType] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { is_suspended_from_clearance: true } }),
+      prisma.user.groupBy({ by: ['user_type'], _count: { _all: true } }),
+    ]);
+
+    return {
+      total,
+      suspended,
+      byType: Object.fromEntries(
+        byType.map((item) => [item.user_type || 'UNSPECIFIED', item._count._all])
+      ),
+    };
   }
 
   async getUsersWithPermission(permissionCode) {
@@ -157,9 +252,7 @@ class UserRepository {
           }
         }
       },
-      include: {
-        role: true
-      }
+        select: { ...userSummarySelect }
     });
   }
 }

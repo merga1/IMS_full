@@ -51,7 +51,12 @@ const redis = {
         isRedisAvailable = false;
       }
     }
-    inMemoryStore.set(key, value);
+    const expirationArg = args.findIndex((arg) => String(arg).toUpperCase() === 'EX');
+    const ttlSeconds = expirationArg >= 0 ? Number(args[expirationArg + 1]) : 0;
+    inMemoryStore.set(key, {
+      value,
+      expiresAt: ttlSeconds > 0 ? Date.now() + ttlSeconds * 1000 : null,
+    });
     return 'OK';
   },
 
@@ -63,7 +68,13 @@ const redis = {
         isRedisAvailable = false;
       }
     }
-    return inMemoryStore.get(key) || null;
+    const cached = inMemoryStore.get(key);
+    if (!cached) return null;
+    if (cached.expiresAt && cached.expiresAt <= Date.now()) {
+      inMemoryStore.delete(key);
+      return null;
+    }
+    return cached.value;
   },
 
   async del(key) {

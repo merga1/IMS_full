@@ -2,7 +2,11 @@ import { hash, compare } from 'bcrypt';
 
 import { AppError } from '../../../shared/utils/errors.js';
 import roleRepository from '../repositories/roleRepository.js';
+import sessionRepository from '../repositories/sessionRepository.js';
 import userRepository from '../repositories/userRepository.js';
+
+const omitPassword = (user) =>
+  Object.fromEntries(Object.entries(user).filter(([key]) => key !== 'password'));
 
 class UserService {
   async validateUserCredentials(faydaId, password) {
@@ -21,9 +25,13 @@ class UserService {
       throw new AppError('Email already in use', 409);
     }
 
-    const role = await roleRepository.findById(userData.roleId);
+    const role = await roleRepository.findById(userData.role_id);
     if (!role) {
       throw new AppError('Role not found', 404);
+    }
+
+    if (await userRepository.findByFaydaId(userData.fayda_id)) {
+      throw new AppError('Fayda ID already in use', 409);
     }
 
     const hashedPassword = await hash(userData.password, 12);
@@ -33,8 +41,7 @@ class UserService {
       password: hashedPassword
     });
 
-    const { password: _password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return omitPassword(user);
   }
 
   async getUserById(id) {
@@ -43,8 +50,7 @@ class UserService {
       throw new AppError('User not found', 404);
     }
 
-    const { password: _password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return omitPassword(user);
   }
 
   async getUserByEmail(email) {
@@ -53,17 +59,13 @@ class UserService {
       throw new AppError('User not found', 404);
     }
 
-    const { password: _password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return omitPassword(user);
   }
 
   async getAllUsers(filters) {
     const result = await userRepository.findAll(filters);
 
-    result.users = result.users.map(user => {
-      const { password: _password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
+    result.users = result.users.map(omitPassword);
 
     return result;
   }
@@ -81,17 +83,17 @@ class UserService {
       }
     }
 
-    if (userData.roleId) {
-      const role = await roleRepository.findById(userData.roleId);
+    if (userData.role_id) {
+      const role = await roleRepository.findById(userData.role_id);
       if (!role) {
         throw new AppError('Role not found', 404);
       }
     }
 
     const updatedUser = await userRepository.update(id, userData);
+    await sessionRepository.deleteUserSessions(id);
 
-    const { password: _password, ...userWithoutPassword } = updatedUser;
-    return userWithoutPassword;
+    return omitPassword(updatedUser);
   }
 
   async deleteUser(id) {
@@ -101,12 +103,13 @@ class UserService {
     }
 
     await userRepository.remove(id);
+    await sessionRepository.deleteUserSessions(id);
 
     return { message: 'User deleted successfully' };
   }
 
   async changePassword(userId, currentPassword, newPassword) {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByIdWithPassword(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
@@ -122,26 +125,13 @@ class UserService {
 
     // Update password
     await userRepository.updatePassword(userId, hashedPassword);
+    await sessionRepository.deleteUserSessions(userId);
 
     return { message: 'Password changed successfully' };
   }
 
-  async updateLastLogin(userId) {
-    return await userRepository.updateLastLogin(userId);
-  }
-
   async getUserStats() {
-    const [total, active, inactive] = await Promise.all([
-      userRepository.findAll({ limit: 1 }),
-      userRepository.findAll({ active: 'true', limit: 1 }),
-      userRepository.findAll({ active: 'false', limit: 1 })
-    ]);
-
-    return {
-      total: total.pagination.total,
-      active: active.pagination.total,
-      inactive: inactive.pagination.total
-    };
+    return userRepository.getStats();
   }
 
   async getHierarchy() {

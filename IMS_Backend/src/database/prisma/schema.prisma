@@ -189,6 +189,7 @@ model Location {
 
 enum AssetStatus {
   IN_STORE
+  IN_TRANSIT
   REQUESTED
   ISSUED
   DEPLOYED

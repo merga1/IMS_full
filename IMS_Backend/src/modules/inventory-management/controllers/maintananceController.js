@@ -4,7 +4,7 @@ import { successResponse } from '../../../shared/utils/responses.js';
 
 class MaintenanceController {
     report = asyncHandler(async (req, res) => {
-        const incident = await maintenanceService.reportIncident(req.body, req.user);
+        const incident = await maintenanceService.reportIncident(req.body, req.user, req.permissions);
         successResponse(res, incident, 'Incident reported successfully and clearance profile flagged', 201);
     });
 

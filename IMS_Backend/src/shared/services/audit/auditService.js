@@ -2,7 +2,7 @@ import prisma from '../../../database/index.js';
 import { logger } from '../../utils/logger.js';
 
 class AuditService {
-  async log(auditData) {
+  async log(auditData, client = prisma) {
     try {
       const {
         userId,
@@ -17,12 +17,12 @@ class AuditService {
         userAgent,
       } = auditData;
 
-      const auditLog = await prisma.auditLog.create({
+      const auditLog = await client.auditLog.create({
         data: {
           userId,
           action,
           entityType,
-          entityId,
+          entityId: entityId === undefined || entityId === null ? null : String(entityId),
           oldValue: oldValue ? JSON.stringify(oldValue) : null,
           newValue: newValue ? JSON.stringify(newValue) : null,
           changes: changes ? JSON.stringify(changes) : null,
@@ -49,7 +49,7 @@ class AuditService {
       },
       include: {
         user: {
-          select: { id: true, name: true, email: true },
+          select: { user_id: true, full_name: true, email: true },
         },
       },
       orderBy: { timestamp: 'desc' },

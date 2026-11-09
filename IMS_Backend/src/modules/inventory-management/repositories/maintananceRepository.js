@@ -1,8 +1,9 @@
 import prisma from '../../../database/index.js';
+import { assetSummarySelect, userSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class MaintenanceRepository {
-    async create(data) {
-        return prisma.incidentReport.create({
+    async create(data, client = prisma) {
+        return client.incidentReport.create({
             data: {
                 asset_id: data.asset_id,
                 sys_id: data.sys_id,
@@ -17,14 +18,14 @@ class MaintenanceRepository {
     async findById(incident_id) {
         return prisma.incidentReport.findUnique({
             where: { incident_id },
-            include: { asset: true, reporter: true }
+            include: { asset: { select: assetSummarySelect }, reporter: { select: userSummarySelect } }
         });
     }
 
     async findAllOpen() {
         return prisma.incidentReport.findMany({
             where: { resolution: null },
-            include: { asset: { include: { sku: true } }, reporter: true },
+            include: { asset: { select: assetSummarySelect }, reporter: { select: userSummarySelect } },
             orderBy: { incident_id: 'desc' }
         });
     }

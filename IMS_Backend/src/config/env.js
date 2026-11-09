@@ -27,10 +27,14 @@ export const jwtRefreshSecret = requireEnv('JWT_REFRESH_SECRET');
 export const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '1d';
 export const jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+  : isDevelopment
+    ? ['http://localhost:5173', 'http://localhost:3000']
+    : [];
+
 export const cors = {
-  origin: process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-    : (origin, callback) => callback(null, true),
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -49,6 +53,7 @@ const config = {
   isProduction,
   dbUrl,
   jwtSecret,
+  jwtRefreshSecret,
   jwtExpiresIn,
   cors,
 };

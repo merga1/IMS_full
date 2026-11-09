@@ -1,4 +1,5 @@
 import prisma from '../../../database/index.js';
+import { userSummarySelect } from '../../../shared/constants/prismaSelects.js';
 
 class RequisitionRepository {
     async create(data) {
@@ -36,10 +37,8 @@ class RequisitionRepository {
         return prisma.requisition.findUnique({
             where: { req_id },
             include: {
-                requester: {
-                    include: { role: true, branch: true }
-                },
-                sku: true,
+                requester: { select: userSummarySelect },
+                sku: { include: { category: true } },
                 approvalSteps: {
                     orderBy: { step_order: 'asc' },
                     include: {
@@ -91,7 +90,8 @@ class RequisitionRepository {
                 user_id: true,
                 full_name: true,
                 role: true,
-            }
+            },
+            orderBy: { full_name: 'asc' },
         });
     }
 
@@ -101,7 +101,7 @@ class RequisitionRepository {
             include: {
                 role: true,
                 thirdPartyMeta: {
-                    include: { sponsor: true }
+                    include: { sponsor: { select: userSummarySelect } }
                 }
             }
         });
@@ -109,7 +109,8 @@ class RequisitionRepository {
 
     async findSku(sku_id) {
         return prisma.skuVariant.findUnique({
-            where: { sku_id }
+            where: { sku_id },
+            include: { category: true }
         });
     }
 
@@ -117,7 +118,7 @@ class RequisitionRepository {
         return prisma.procurement.create({
             data: {
                 req_id,
-                gd_approval_status: 'PENDING_GD_REVIEW',
+                gd_approval_status: 'PENDING',
             },
         });
     }
@@ -133,7 +134,7 @@ class RequisitionRepository {
     async findPendingByApprover(approver_id) {
         const pendingSteps = await prisma.approvalStep.findMany({
             where: { approver_id, status: 'PENDING' },
-            include: { requisition: { include: { requester: true, sku: true } } }
+            include: { requisition: { include: { requester: { select: userSummarySelect }, sku: true } } }
         });
 
         const actualPending = [];
@@ -152,7 +153,7 @@ class RequisitionRepository {
                 status: 'APPROVED',
                 requester: { branch_id }
             },
-            include: { requester: true, sku: true }
+            include: { requester: { select: userSummarySelect }, sku: true }
         });
     }
 }

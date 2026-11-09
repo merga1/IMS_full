@@ -12,6 +12,21 @@ class SessionRepository {
     return `${PREFIX}${sessionId}`;
   }
 
+  _userIndexKey(userId) {
+    return `${PREFIX}user:${userId}`;
+  }
+
+  async _getUserSessionIds(userId) {
+    const stored = await redis.get(this._userIndexKey(userId));
+    if (!stored) return [];
+    try {
+      const ids = JSON.parse(stored);
+      return Array.isArray(ids) ? ids : [];
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * Save session data
    * We store the permissions array HERE to avoid hitting Postgres on every request
@@ -20,6 +35,12 @@ class SessionRepository {
     const key = this._key(sessionId);
     // Redis stores strings, so we JSON.stringify complex objects
     await redis.set(key, JSON.stringify(data), 'EX', SESSION_TTL);
+    const userId = data.userId || data.user_id;
+    if (userId) {
+      const sessionIds = await this._getUserSessionIds(userId);
+      if (!sessionIds.includes(sessionId)) sessionIds.push(sessionId);
+      await redis.set(this._userIndexKey(userId), JSON.stringify(sessionIds), 'EX', SESSION_TTL);
+    }
     return data;
   }
 
@@ -50,7 +71,24 @@ class SessionRepository {
    */
   async delete(sessionId) {
     const key = this._key(sessionId);
+    const session = await this.findById(sessionId);
     await redis.del(key);
+    const userId = session?.userId || session?.user_id;
+    if (userId) {
+      const sessionIds = (await this._getUserSessionIds(userId)).filter((id) => id !== sessionId);
+      if (sessionIds.length) {
+        await redis.set(this._userIndexKey(userId), JSON.stringify(sessionIds), 'EX', SESSION_TTL);
+      } else {
+        await redis.del(this._userIndexKey(userId));
+      }
+    }
+  }
+
+  async deleteUserSessions(userId) {
+    const sessionIds = await this._getUserSessionIds(userId);
+    await Promise.all(sessionIds.map((sessionId) => redis.del(this._key(sessionId))));
+    await redis.del(this._userIndexKey(userId));
+    return sessionIds.length;
   }
 }
 

@@ -1,4 +1,3 @@
-import express from 'express';
 import inventoryRouter from './routes/index.js';
 
 class InventoryModule {
